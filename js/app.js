@@ -1528,6 +1528,15 @@ async function openEdit(key, id) {
 function closeModal() { $('overlay').classList.remove('show'); editId = null; }
 
 async function saveModal() {
+  // Garante que campos multitext sincronizem o hidden antes de coletar.
+  // Sem isso, digitar e clicar em Salvar sem acionar outro evento deixa o
+  // hidden com o valor antigo (syncMultitext nunca teria sido chamado).
+  $('modalBody').querySelectorAll('.multitext').forEach((wrap) => {
+    const hidden = wrap.closest('.fld').querySelector('input[type="hidden"][data-k]');
+    if (!hidden) return;
+    const vals = [...wrap.querySelectorAll('.multitext-row input[type="text"]')].map((i) => i.value.trim()).filter(Boolean);
+    hidden.value = vals.join(', ');
+  });
   const rec = {};
   $('modalBody').querySelectorAll('[data-k]').forEach((el) => { rec[el.dataset.k] = el.value.trim() === '' ? null : el.value.trim(); });
   const saveBtn = $('modalSave');
@@ -3243,6 +3252,7 @@ const SUBMIT_ACTIONS = {
 const INPUT_ACTIONS = {
   filterCadastroDrawer,
   filterTagOptions,
+  syncMultitext,
 };
 
 document.addEventListener('click', (e) => {
