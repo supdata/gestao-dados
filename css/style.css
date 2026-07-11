@@ -526,3 +526,9 @@ tbody tr.row-sel{background:var(--accent-soft)}
 .seg-data{font-size:10.5px;padding:2px 8px;border-radius:20px;font-weight:500}
 .seg-data.ok{background:var(--green-soft);color:var(--green)}
 .seg-data.pendente{background:var(--amber-soft);color:var(--amber)}
+
+/* ── Campo de objetos (mudancas) ─────────────────────────────────────────── */
+.obj-list{display:flex;flex-direction:column;gap:6px}
+.obj-row{display:flex;gap:8px;align-items:center}
+.obj-row .obj-nome{flex:1;min-width:0}
+.obj-row .obj-tipo{width:148px;flex-shrink:0}
