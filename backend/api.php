@@ -508,6 +508,51 @@ function modulosVisiveis(array $user): array
 }
 
 // ---------------------------------------------------------------------------
+// Helpers para a sub-tabela mudancas_objetos
+// ---------------------------------------------------------------------------
+
+/**
+ * Retorna todos os objetos de uma mudanca, em ordem de insercao.
+ * @return array<int, array<string, mixed>>
+ */
+function obterObjMudanca(PDO $pdo, int $mudancaId): array
+{
+    $tab  = quoteIdent(tableName('mudancas_objetos'));
+    $stmt = $pdo->prepare(
+        "SELECT id, nome, tipo FROM {$tab} WHERE mudanca_id = ? ORDER BY id"
+    );
+    $stmt->execute([$mudancaId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Substitui os objetos de uma mudanca pelos enviados no corpo.
+ * Apaga tudo e reinsere -- simples e seguro para listas pequenas.
+ * @param array<int, array<string, mixed>> $objetos
+ */
+function sincronizarObjMudanca(PDO $pdo, int $mudancaId, array $objetos): void
+{
+    $tab  = quoteIdent(tableName('mudancas_objetos'));
+    $pdo->prepare("DELETE FROM {$tab} WHERE mudanca_id = ?")->execute([$mudancaId]);
+    $agora = date('Y-m-d H:i:s');
+    $cMid  = quoteIdent('mudanca_id');
+    $cNome = quoteIdent('nome');
+    $cTipo = quoteIdent('tipo');
+    $cData = quoteIdent('criado_em');
+    foreach ($objetos as $obj) {
+        $nome = trim((string) ($obj['nome'] ?? ''));
+        if ($nome === '') {
+            continue;
+        }
+        $tipo = trim((string) ($obj['tipo'] ?? ''));
+        $pdo->prepare(
+            "INSERT INTO {$tab} ({$cMid}, {$cNome}, {$cTipo}, {$cData}) VALUES (?, ?, ?, ?)"
+        )->execute([$mudancaId, $nome, $tipo !== '' ? $tipo : null, $agora]);
+    }
+}
+
+
+// ---------------------------------------------------------------------------
 // Roteador -- compara metodo + caminho (sem prefixo "/api") e despacha.
 // ---------------------------------------------------------------------------
 
@@ -1482,46 +1527,85 @@ function despachar(string $metodo, string $caminho): void
         exit;
     }
 
-    // ---- Helpers exclusivos para mudancas_objetos -----------------------
-    /**
-     * Retorna todos os objetos de uma mudanca (ordem de insercao).
-     * @return list<array<string, mixed>>
-     */
-    function obterObjMudanca(PDO $pdo, int $mudancaId): array
-    {
-        $tab  = quoteIdent(tableName('mudancas_objetos'));
-        $stmt = $pdo->prepare(
-            "SELECT id, nome, tipo FROM {$tab} WHERE mudanca_id = ? ORDER BY id"
-        );
-        $stmt->execute([$mudancaId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // ---- /sistema/info (driver, versao e tamanho do banco) ---------------
+    // Acessivel a qualquer usuario autenticado -- nao e dado sensivel, e
+    // util pra exibir no rodape da sidebar como referencia rapida.
+    if ($metodo === 'GET' && $caminho === '/sistema/info') {
+        exigirLogin();
+        $pdo    = db();
+        $driver = dbDriver();
+
+        // Versao do banco -- cada motor tem sua propria funcao/variavel.
+        try {
+            switch ($driver) {
+                case 'sqlite':
+                    $stV = $pdo->query('SELECT sqlite_version()');
+                    $versao = $stV !== false ? (string) $stV->fetchColumn() : null;
+                    break;
+                case 'mysql':
+                    $stV = $pdo->query('SELECT VERSION()');
+                    $versao = $stV !== false ? (string) $stV->fetchColumn() : null;
+                    // MySQL devolve "8.0.32-..." -- trunca no primeiro traco
+                    if ($versao !== null) { $versao = explode('-', $versao)[0]; }
+                    break;
+                case 'pgsql':
+                    $stV = $pdo->query("SELECT current_setting('server_version')");
+                    $versao = $stV !== false ? (string) $stV->fetchColumn() : null;
+                    if ($versao !== null) { $versao = explode(' ', $versao)[0]; }
+                    break;
+                case 'sqlsrv':
+                    $stV = $pdo->query("SELECT SERVERPROPERTY('ProductVersion')");
+                    $versao = $stV !== false ? (string) $stV->fetchColumn() : null;
+                    break;
+                default:
+                    $versao = null;
+            }
+        } catch (Throwable $e) {
+            $versao = null;
+        }
+
+        // Tamanho do banco em bytes -- best effort (pode nao estar disponivel
+        // em alguns ambientes por falta de permissao na information_schema).
+        $tamanhoBytes = null;
+        try {
+            switch ($driver) {
+                case 'sqlite':
+                    // page_count * page_size e o tamanho real do arquivo SQLite.
+                    $stPc = $pdo->query('PRAGMA page_count');
+                    $stPs = $pdo->query('PRAGMA page_size');
+                    if ($stPc !== false && $stPs !== false) {
+                        $tamanhoBytes = (int) $stPc->fetchColumn() * (int) $stPs->fetchColumn();
+                    }
+                    break;
+                case 'mysql':
+                    $sql = 'SELECT COALESCE(SUM(data_length + index_length), 0)
+                            FROM information_schema.tables
+                            WHERE table_schema = DATABASE()';
+                    $stSz = $pdo->query($sql);
+                    $tamanhoBytes = $stSz !== false ? (int) $stSz->fetchColumn() : null;
+                    break;
+                case 'pgsql':
+                    $stSz = $pdo->query('SELECT pg_database_size(current_database())');
+                    $tamanhoBytes = $stSz !== false ? (int) $stSz->fetchColumn() : null;
+                    break;
+                case 'sqlsrv':
+                    $sql = "SELECT SUM(CAST(size AS BIGINT) * 8 * 1024)
+                            FROM sys.database_files WHERE type_desc = 'ROWS'";
+                    $stSz = $pdo->query($sql);
+                    $tamanhoBytes = $stSz !== false ? (int) $stSz->fetchColumn() : null;
+                    break;
+            }
+        } catch (Throwable $e) {
+            $tamanhoBytes = null;
+        }
+
+        responderJson([
+            'driver'         => $driver,
+            'versao'         => $versao,
+            'tamanho_bytes'  => $tamanhoBytes,
+        ]);
     }
 
-    /**
-     * Substitui os objetos de uma mudanca pelos enviados no corpo.
-     * Apaga tudo e reinsere -- simples e seguro para listas pequenas.
-     * @param list<array<string, mixed>> $objetos
-     */
-    function sincronizarObjMudanca(PDO $pdo, int $mudancaId, array $objetos): void
-    {
-        $tab     = quoteIdent(tableName('mudancas_objetos'));
-        $pdo->prepare("DELETE FROM {$tab} WHERE mudanca_id = ?")->execute([$mudancaId]);
-        $agora   = date('Y-m-d H:i:s');
-        $cMid    = quoteIdent('mudanca_id');
-        $cNome   = quoteIdent('nome');
-        $cTipo   = quoteIdent('tipo');
-        $cData   = quoteIdent('criado_em');
-        foreach ($objetos as $obj) {
-            $nome = trim((string) ($obj['nome'] ?? ''));
-            if ($nome === '') {
-                continue;
-            }
-            $tipo = trim((string) ($obj['tipo'] ?? ''));
-            $pdo->prepare(
-                "INSERT INTO {$tab} ({$cMid}, {$cNome}, {$cTipo}, {$cData}) VALUES (?, ?, ?, ?)"
-            )->execute([$mudancaId, $nome, $tipo !== '' ? $tipo : null, $agora]);
-        }
-    }
 
     // ---- /mudancas (rotas especificas -- substitui o CRUD generico) ------
     // Precisa vir ANTES do foreach generico, pois responderJson/Vazio chamam
@@ -1541,7 +1625,8 @@ function despachar(string $metodo, string $caminho): void
             $fim    = trim(strGet('fim'));
             $itens  = crudListar($modMud['tabela'], $modMud['busca'], $modMud['ordem'], $q, $inicio, $fim);
             if ($itens) {
-                $ids   = array_map(static fn (mixed $r): int => (int) (is_array($r) ? $r['id'] : 0), $itens);
+                /** @var list<array<string, mixed>> $itens */
+                $ids   = array_map(static fn (array $r): int => (int) ($r['id'] ?? 0), $itens);
                 $marc  = implode(', ', array_fill(0, count($ids), '?'));
                 $stmt  = $pdo->prepare(
                     "SELECT id, mudanca_id, nome, tipo FROM {$tabObj} WHERE mudanca_id IN ({$marc}) ORDER BY mudanca_id, id"
