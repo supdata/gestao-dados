@@ -486,6 +486,13 @@ function migrate(): void
             'criado_em' => $carimbo,
             'atualizado_em' => $carimbo,
         ],
+        'mudancas_objetos' => [
+            'id'         => $pk,
+            'mudanca_id' => 'INT NOT NULL',
+            'nome'       => 'VARCHAR(200) NOT NULL',
+            'tipo'       => 'VARCHAR(50)',
+            'criado_em'  => $carimbo,
+        ],
         'mudancas' => [
             'id' => $pk,
             'codigo' => 'VARCHAR(30)',

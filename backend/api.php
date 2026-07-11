@@ -1482,6 +1482,183 @@ function despachar(string $metodo, string $caminho): void
         exit;
     }
 
+    // ---- Helpers exclusivos para mudancas_objetos -----------------------
+    /**
+     * Retorna todos os objetos de uma mudanca (ordem de insercao).
+     * @return list<array<string, mixed>>
+     */
+    function obterObjMudanca(PDO $pdo, int $mudancaId): array
+    {
+        $tab  = quoteIdent(tableName('mudancas_objetos'));
+        $stmt = $pdo->prepare(
+            "SELECT id, nome, tipo FROM {$tab} WHERE mudanca_id = ? ORDER BY id"
+        );
+        $stmt->execute([$mudancaId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Substitui os objetos de uma mudanca pelos enviados no corpo.
+     * Apaga tudo e reinsere -- simples e seguro para listas pequenas.
+     * @param list<array<string, mixed>> $objetos
+     */
+    function sincronizarObjMudanca(PDO $pdo, int $mudancaId, array $objetos): void
+    {
+        $tab     = quoteIdent(tableName('mudancas_objetos'));
+        $pdo->prepare("DELETE FROM {$tab} WHERE mudanca_id = ?")->execute([$mudancaId]);
+        $agora   = date('Y-m-d H:i:s');
+        $cMid    = quoteIdent('mudanca_id');
+        $cNome   = quoteIdent('nome');
+        $cTipo   = quoteIdent('tipo');
+        $cData   = quoteIdent('criado_em');
+        foreach ($objetos as $obj) {
+            $nome = trim((string) ($obj['nome'] ?? ''));
+            if ($nome === '') {
+                continue;
+            }
+            $tipo = trim((string) ($obj['tipo'] ?? ''));
+            $pdo->prepare(
+                "INSERT INTO {$tab} ({$cMid}, {$cNome}, {$cTipo}, {$cData}) VALUES (?, ?, ?, ?)"
+            )->execute([$mudancaId, $nome, $tipo !== '' ? $tipo : null, $agora]);
+        }
+    }
+
+    // ---- /mudancas (rotas especificas -- substitui o CRUD generico) ------
+    // Precisa vir ANTES do foreach generico, pois responderJson/Vazio chamam
+    // exit e encerram a requisicao sem chegar no loop.
+    if ($metodo !== 'OPTIONS' && str_starts_with($caminho, '/mudancas')) {
+        $user    = exigirLogin();
+        $pdo     = db();
+        /** @var array{tabela: string, colunas: list<string>, busca: list<string>, ordem: string} $modMud */
+        $modMud  = $MODULOS['mudancas'];
+        $tabObj  = quoteIdent(tableName('mudancas_objetos'));
+
+        // GET /mudancas
+        if ($caminho === '/mudancas' && $metodo === 'GET') {
+            exigirAcessoModulo($user, 'mudancas', false);
+            $q      = trim(strGet('q'));
+            $inicio = trim(strGet('inicio'));
+            $fim    = trim(strGet('fim'));
+            $itens  = crudListar($modMud['tabela'], $modMud['busca'], $modMud['ordem'], $q, $inicio, $fim);
+            if ($itens) {
+                $ids   = array_map(static fn (mixed $r): int => (int) (is_array($r) ? $r['id'] : 0), $itens);
+                $marc  = implode(', ', array_fill(0, count($ids), '?'));
+                $stmt  = $pdo->prepare(
+                    "SELECT id, mudanca_id, nome, tipo FROM {$tabObj} WHERE mudanca_id IN ({$marc}) ORDER BY mudanca_id, id"
+                );
+                $stmt->execute($ids);
+                /** @var array<int, list<array<string, mixed>>> $porMud */
+                $porMud = [];
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $obj) {
+                    $porMud[(int) $obj['mudanca_id']][] = $obj;
+                }
+                foreach ($itens as &$item) {
+                    $item['objetos'] = $porMud[(int) $item['id']] ?? [];
+                }
+                unset($item);
+            }
+            responderJson($itens);
+        }
+
+        // POST /mudancas
+        if ($caminho === '/mudancas' && $metodo === 'POST') {
+            exigirAcessoModulo($user, 'mudancas', true);
+            $body    = corpoRequisicao();
+            $objetos = is_array($body['objetos'] ?? null) ? $body['objetos'] : [];
+            $item    = crudCriar($modMud['tabela'], $modMud['colunas'], $body);
+            sincronizarObjMudanca($pdo, (int) $item['id'], $objetos);
+            $item['objetos'] = obterObjMudanca($pdo, (int) $item['id']);
+            registrarAuditoria('mudancas', (int) $item['id'], 'criar', (string) $user['username'], null, $item);
+            responderJson($item, 201);
+        }
+
+        // DELETE /mudancas/lote
+        if ($caminho === '/mudancas/lote' && $metodo === 'DELETE') {
+            exigirAcessoModulo($user, 'mudancas', true);
+            exigirAdmin($user);
+            $body    = corpoRequisicao();
+            $tamanho = max(1, min(5000, (int) ($body['tamanho'] ?? 5000)));
+            /** @var list<int>|null $ids */
+            $ids = null;
+            if (is_array($body['ids'] ?? null)) {
+                $ids = array_values(array_unique(array_filter(
+                    array_map(static fn (mixed $v): int => (int) $v, $body['ids']),
+                    static fn (int $v): bool => $v > 0
+                )));
+            }
+            // Apagar objetos antes das mudancas para nao violar FK (se existir)
+            $tabMud = quoteIdent(tableName('mudancas'));
+            if ($ids !== null) {
+                if ($ids) {
+                    $marc = implode(', ', array_fill(0, count($ids), '?'));
+                    $pdo->prepare("DELETE FROM {$tabObj} WHERE mudanca_id IN ({$marc})")->execute($ids);
+                }
+            } else {
+                // Sem IDs: descobre quais serao removidos e apaga seus objetos primeiro
+                if (dbDriver() === 'sqlsrv') {
+                    $selSql = "SELECT TOP ({$tamanho}) id FROM {$tabMud}";
+                } else {
+                    $selSql = "SELECT id FROM {$tabMud} LIMIT {$tamanho}";
+                }
+                $stIds = $pdo->query($selSql);
+                if ($stIds !== false) {
+                    $idsLote = $stIds->fetchAll(PDO::FETCH_COLUMN);
+                    if ($idsLote) {
+                        $marc = implode(', ', array_fill(0, count($idsLote), '?'));
+                        $pdo->prepare("DELETE FROM {$tabObj} WHERE mudanca_id IN ({$marc})")->execute($idsLote);
+                    }
+                }
+            }
+            $apagados = crudExcluirLote($modMud['tabela'], $tamanho, $ids);
+            if ($apagados > 0) {
+                registrarAuditoria('mudancas', null, 'excluir_lote', (string) $user['username'], null, ['apagados' => $apagados]);
+            }
+            responderJson(['apagados' => $apagados]);
+        }
+
+        // GET /mudancas/{id}  |  PUT /mudancas/{id}  |  DELETE /mudancas/{id}
+        if (preg_match('#^/mudancas/(\d+)$#', $caminho, $m)) {
+            $id = (int) $m[1];
+
+            if ($metodo === 'GET') {
+                exigirAcessoModulo($user, 'mudancas', false);
+                $item = crudObter($modMud['tabela'], $id);
+                if ($item === null) {
+                    responderErro(404, 'Registro nao encontrado.');
+                }
+                $item['objetos'] = obterObjMudanca($pdo, $id);
+                responderJson($item);
+            }
+
+            if ($metodo === 'PUT') {
+                exigirAcessoModulo($user, 'mudancas', true);
+                $body    = corpoRequisicao();
+                $objetos = is_array($body['objetos'] ?? null) ? $body['objetos'] : [];
+                $antes   = crudObter($modMud['tabela'], $id);
+                $item    = crudAtualizar($modMud['tabela'], $modMud['colunas'], $id, $body);
+                if ($item === null) {
+                    responderErro(404, 'Registro nao encontrado.');
+                }
+                sincronizarObjMudanca($pdo, $id, $objetos);
+                $item['objetos'] = obterObjMudanca($pdo, $id);
+                registrarAuditoria('mudancas', $id, 'atualizar', (string) $user['username'], $antes, $item);
+                responderJson($item);
+            }
+
+            if ($metodo === 'DELETE') {
+                exigirAcessoModulo($user, 'mudancas', true);
+                $antes = crudObter($modMud['tabela'], $id);
+                $pdo->prepare("DELETE FROM {$tabObj} WHERE mudanca_id = ?")->execute([$id]);
+                if (!crudExcluir($modMud['tabela'], $id)) {
+                    responderErro(404, 'Registro nao encontrado.');
+                }
+                registrarAuditoria('mudancas', $id, 'excluir', (string) $user['username'], $antes, null);
+                responderVazio(204);
+            }
+        }
+    }
+
+
     // ---- Modulos de dados (CRUD generico) -------------------------------
     foreach ($MODULOS as $prefixo => $modulo) {
         /** @var array{tabela: string, colunas: list<string>, busca: list<string>, ordem: string} $modulo */
