@@ -1645,6 +1645,51 @@ function despachar(string $metodo, string $caminho): void
             responderJson($itens);
         }
 
+        // GET /mudancas/exportar  (download CSV desnormalizado)
+        if ($caminho === '/mudancas/exportar' && $metodo === 'GET') {
+            exigirAcessoModulo($user, 'mudancas', false);
+            $tabMud = quoteIdent(tableName('mudancas'));
+            $sql    = "SELECT m.codigo, m.data, m.ambiente, m.tipo, m.descricao,
+                              o.nome AS objeto_nome, o.tipo AS objeto_tipo,
+                              m.solicitante, m.aprovador, m.status, m.resultado
+                       FROM {$tabMud} m
+                       LEFT JOIN {$tabObj} o ON o.mudanca_id = m.id
+                       ORDER BY m.data DESC, m.id, o.id";
+            $stExp = $pdo->query($sql);
+            /** @var list<array<string, mixed>> $rowsExp */
+            $rowsExp = $stExp !== false ? $stExp->fetchAll(PDO::FETCH_ASSOC) : [];
+
+            header('Content-Type: text/csv; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="mudancas_' . date('Ymd_His') . '.csv"');
+            header('Cache-Control: no-store');
+            // BOM UTF-8 para compatibilidade com Excel
+            echo "\xEF\xBB\xBF";
+            $out = fopen('php://output', 'w');
+            if ($out !== false) {
+                fputcsv($out, [
+                    'Chamado', 'Data', 'Ambiente', 'Tipo', 'Descricao',
+                    'Objeto', 'Tipo_Objeto', 'Solicitante', 'Aprovador', 'Status', 'Resultado',
+                ]);
+                foreach ($rowsExp as $row) {
+                    fputcsv($out, [
+                        (string) ($row['codigo']      ?? ''),
+                        (string) ($row['data']         ?? ''),
+                        (string) ($row['ambiente']     ?? ''),
+                        (string) ($row['tipo']         ?? ''),
+                        (string) ($row['descricao']    ?? ''),
+                        (string) ($row['objeto_nome']  ?? ''),
+                        (string) ($row['objeto_tipo']  ?? ''),
+                        (string) ($row['solicitante']  ?? ''),
+                        (string) ($row['aprovador']    ?? ''),
+                        (string) ($row['status']       ?? ''),
+                        (string) ($row['resultado']    ?? ''),
+                    ]);
+                }
+                fclose($out);
+            }
+            exit;
+        }
+
         // POST /mudancas
         if ($caminho === '/mudancas' && $metodo === 'POST') {
             exigirAcessoModulo($user, 'mudancas', true);
