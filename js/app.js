@@ -1146,7 +1146,9 @@ async function renderTable(key) {
     foot += `<button type="button" class="btn btn-ghost icon-only tt-wrap" data-act="dicTemplateCsv" data-tt="${esc(tr('Baixe o modelo antes de importar'))}" aria-label="${esc(tr('Baixar modelo de importação (CSV)'))}">${I.help}</button>`;
     foot += `<button type="button" class="btn btn-ghost" data-act="dicImportarClick">${I.upload}${esc(tr('Importar'))}</button>`;
   }
-  if (rows.length && key !== 'mudancas') foot += `<button type="button" class="btn btn-ghost" data-act="exportCsv" data-key="${key}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>${esc(tr('Exportar CSV'))}</button>`;
+  const icoExport = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>`;
+  if (rows.length && key === 'mudancas') foot += `<button type="button" class="btn btn-ghost" data-act="exportMudancasCsv">${icoExport}${esc(tr('Exportar CSV'))}</button>`;
+  if (rows.length && key !== 'mudancas') foot += `<button type="button" class="btn btn-ghost" data-act="exportCsv" data-key="${key}">${icoExport}${esc(tr('Exportar CSV'))}</button>`;
   if (foot) h += `<div style="margin-top:14px;text-align:right;display:flex;gap:8px;justify-content:flex-end">${foot}</div>`;
   if (key === 'integracoes') {
     const motor = await getMotorBanco();
@@ -2150,13 +2152,23 @@ async function exportCsv(key, filtros) {
   let rows;
   try { rows = await api.get(ENDPOINT[key] + (qs ? '?' + qs : '')); } catch (e) { toast(e.message, true); return; }
   const head = cols.map((f) => tr(f.l)).join(';');
-  const lines = rows.map((r) => cols.map((f) => { let v = r[f.k] || ''; v = String(v).replace(/"/g, '""'); return /[;"\n]/.test(v) ? `"${v}"` : v; }).join(';'));
+  const lines = rows.map((r) => cols.map((f) => {
+    let v = r[f.k];
+    if (Array.isArray(v)) {
+      // campo objetos: [{nome, tipo}, ...] → "NOME (tipo), ..."
+      v = v.map((o) => (o && o.nome) ? (o.tipo ? o.nome + ' (' + o.tipo + ')' : o.nome) : '').filter(Boolean).join(', ');
+    } else {
+      v = v || '';
+    }
+    v = String(v).replace(/"/g, '""');
+    return /[;"\n]/.test(v) ? `"${v}"` : v;
+  }).join(';'));
   const csv = '﻿' + [head, ...lines].join('\n');
   dl(new Blob([csv], { type: 'text/csv;charset=utf-8' }), key + '.csv');
   toast('CSV exportado');
 }
 
-function exportCsvRelatorio(key) { return exportCsv(key, relatoriosFiltros); }
+function exportCsvRelatorio(key) { if (key === 'mudancas') return exportarMudancasCsv(); return exportCsv(key, relatoriosFiltros); }
 
 // ---------------------------------------------------------------------------
 // Importacao em lote do Dicionario de dados -- mesmo formato do "Exportar
@@ -2386,7 +2398,13 @@ async function exportPdf(key, filtros) {
   }
 
   const head = [cols.map((f) => tr(f.l))];
-  const body = rows.map((r) => cols.map((f) => String(r[f.k] ?? '')));
+  const body = rows.map((r) => cols.map((f) => {
+    const v = r[f.k];
+    if (Array.isArray(v)) {
+      return v.map((o) => (o && o.nome) ? (o.tipo ? o.nome + ' (' + o.tipo + ')' : o.nome) : '').filter(Boolean).join(', ');
+    }
+    return String(v ?? '');
+  }));
 
   doc.autoTable({
     head, body,
@@ -3025,6 +3043,25 @@ async function renderSeguranca() {
   renderSegBody();
 }
 
+async function exportarMudancasCsv() {
+  try {
+    const token = getToken();
+    const res = await fetch(API_BASE + '/mudancas/exportar', {
+      headers: token ? { Authorization: 'Bearer ' + token } : {},
+    });
+    if (!res.ok) { showToast(tr('Erro ao exportar'), 'erro'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mudancas_' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    showToast(e instanceof ApiError ? e.message : tr('Erro ao exportar'), 'erro');
+  }
+}
+
 async function desativarUsuario(id, nome) {
   if (!confirm(`Desativar a conta de "${nome}"? O usuário não conseguirá mais fazer login.`)) return;
   try {
@@ -3255,6 +3292,7 @@ const ACTIONS = {
   openNew: (el) => openNew(el.dataset.key),
   openEdit: (el) => openEdit(el.dataset.key, el.dataset.id),
   delRow: (el) => delRow(el.dataset.key, el.dataset.id),
+  exportMudancasCsv: () => exportarMudancasCsv(),
   exportCsv: (el) => exportCsv(el.dataset.key),
   // Dicionario de dados -- importacao em lote (CSV)
   dicTemplateCsv,
