@@ -47,6 +47,11 @@
         Require all denied
     </Directory>
 
+    # HSTS (so ative depois que o HTTPS estiver funcionando e validado).
+    # Requer mod_headers. Comece com max-age curto (86400 = 1 dia) e suba
+    # para 31536000 (1 ano) apos validar o certificado.
+    # Header always set Strict-Transport-Security "max-age=86400; includeSubDomains"
+
     ErrorLog ${APACHE_LOG_DIR}/meu-portal-error.log
     CustomLog ${APACHE_LOG_DIR}/meu-portal-access.log combined
 </VirtualHost>

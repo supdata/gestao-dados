@@ -624,7 +624,9 @@ function despachar(string $metodo, string $caminho): void
                 );
             } catch (Throwable $e) {
                 registrarAuditoria('auth', (int) $user['id'], 'mfa_envio_falhou', (string) $user['username']);
-                responderErro(400, 'Nao foi possivel enviar o codigo de verificacao: ' . $e->getMessage());
+                error_log('Falha ao enviar codigo MFA: ' . $e->getMessage());
+                $detalhe = ($cfg['app_debug'] ?? false) === true ? $e->getMessage() : null;
+                responderErro(400, 'Nao foi possivel enviar o codigo de verificacao.' . ($detalhe !== null ? ' ' . $detalhe : ''));
             }
             registrarAuditoria('auth', (int) $user['id'], 'login_mfa_pendente', (string) $user['username']);
             responderJson(['mfa_required' => true, 'mfa_token' => $mfaToken]);
@@ -700,7 +702,9 @@ function despachar(string $metodo, string $caminho): void
                 "Seu codigo de verificacao e: {$codigo}\n\nEle expira em " . MFA_CODIGO_TTL_MINUTOS . ' minutos.'
             );
         } catch (Throwable $e) {
-            responderErro(400, 'Nao foi possivel reenviar o codigo: ' . $e->getMessage());
+            error_log('Falha ao reenviar codigo MFA: ' . $e->getMessage());
+            $detalhe = ($cfg['app_debug'] ?? false) === true ? $e->getMessage() : null;
+            responderErro(400, 'Nao foi possivel reenviar o codigo.' . ($detalhe !== null ? ' ' . $detalhe : ''));
         }
         responderJson(['mfa_token' => $novoToken]);
     }
@@ -1895,10 +1899,25 @@ function despachar(string $metodo, string $caminho): void
 migrate();
 
 $cfg = config();
-header('Access-Control-Allow-Origin: ' . (string) ($cfg['cors_allowed_origin'] ?? '*'));
+
+// Issue: CORS "*" em producao e inseguro. Se app_debug === false e a origem
+// ainda for "*", recusamos com 500 para forcar a configuracao correta.
+$corsOrigin  = (string) ($cfg['cors_allowed_origin'] ?? '*');
+$appDebugCfg = ($cfg['app_debug'] ?? false) === true;
+if (!$appDebugCfg && $corsOrigin === '*') {
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['detail' => 'Configuracao insegura: defina cors_allowed_origin com o dominio real do portal em conf/config.php antes de usar em producao.']);
+    exit;
+}
+header('Access-Control-Allow-Origin: ' . $corsOrigin);
 header('Access-Control-Allow-Headers: X-Requested-With, Content-Type, Accept, Origin, Authorization');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Credentials: true');
+// Allow-Credentials nao deve ser enviado quando a origem for "*"
+// (navegador rejeita a combinacao; e aqui nao chegamos com "*" em producao).
+if ($corsOrigin !== '*') {
+    header('Access-Control-Allow-Credentials: true');
+}
 
 // Headers de seguranca proprios da API -- ela so devolve JSON, nunca HTML,
 // entao pode ser bem mais restritiva que o restante do site (ver

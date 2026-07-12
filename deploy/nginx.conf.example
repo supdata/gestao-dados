@@ -58,6 +58,12 @@ server {
         fastcgi_pass unix:/run/php/php8.1-fpm.sock;
     }
 
+    # HSTS (so ative depois que o HTTPS estiver funcionando e validado).
+    # Comece com max-age=86400 (1 dia) para testar; suba para 31536000 (1 ano)
+    # quando tiver certeza. ATENCAO: uma vez que o navegador "grava" o HSTS,
+    # qualquer problema de certificado bloqueia o acesso ate o max-age expirar.
+    # add_header Strict-Transport-Security "max-age=86400; includeSubDomains" always;
+
     client_max_body_size 10m;
 
     access_log /var/log/nginx/meu-portal.access.log;

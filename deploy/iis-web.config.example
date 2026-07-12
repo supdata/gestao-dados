@@ -61,5 +61,17 @@
 
     <!-- Bloqueia listagem de diretorio -->
     <directoryBrowse enabled="false" />
+
+    <!--
+      HSTS: so ative depois que o HTTPS estiver funcionando e validado.
+      Comece com max-age=86400 (1 dia); suba para 31536000 (1 ano) apos confirmar.
+      ATENCAO: uma vez gravado no navegador, problemas de certificado bloqueiam
+      o acesso ate o max-age expirar.
+    <httpProtocol>
+      <customHeaders>
+        <add name="Strict-Transport-Security" value="max-age=86400; includeSubDomains" />
+      </customHeaders>
+    </httpProtocol>
+    -->
   </system.webServer>
 </configuration>

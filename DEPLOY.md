@@ -151,13 +151,28 @@ Sem Composer, não há `vendor/` pra reinstalar — atualizar o código é só s
 ## Checklist de segurança antes de divulgar a URL pro time
 
 - [ ] `secret_key` (em `conf/config.php`) é um valor único, longo e aleatório (não é o do `config.example.php`)
-- [ ] `cors_allowed_origin` é o domínio real, não `*`
+- [ ] `cors_allowed_origin` é o domínio real, não `*` (em produção a API recusa iniciar com `*` — é intencional)
 - [ ] `app_debug` é `false`
 - [ ] A pasta `setup/` não existe mais no servidor (o assistente se autoexclui ao final; confira manualmente se o aviso de falha na autoexclusão apareceu na tela de sucesso)
 - [ ] Acessar `https://seu-dominio/setup/` agora redireciona para a tela de login (ou dá 404), nunca reabre o formulário de instalação
 - [ ] HTTPS configurado (certificado válido, não autoassinado)
+- [ ] HSTS ativado nos exemplos de deploy (`deploy/`) após validar o certificado — comece com `max-age=86400` (1 dia) e só suba para 1 ano quando tiver certeza
 - [ ] Acesso direto a `https://seu-dominio/conf/config.php` (e variações, tipo `/backend/`, `/conf/`, `/db/database.db`, `/DEPLOY.md`) retorna 403/404, nunca o conteúdo do arquivo
 - [ ] Backup do banco de dados configurado (rotina externa à aplicação — isso é responsabilidade da infraestrutura, não do portal)
+
+
+## Segurança atrás de proxy reverso / load balancer
+
+O bloqueio de força bruta no login (`backend/auth.php`) usa o par **usuário + IP** para contar tentativas, com o IP vindo de `$_SERVER['REMOTE_ADDR']`.
+
+**Limitação conhecida:** atrás de um proxy reverso (Nginx, Apache, AWS ALB, Cloudflare…) sem configuração adicional, todos os clientes chegam com o mesmo IP — o do proxy. Isso significa que cinco tentativas de senha errada de qualquer pessoa podem bloquear temporariamente o acesso de todo mundo para aquele usuário.
+
+**Como corrigir:** configure o servidor web para repassar o IP real do cliente:
+
+- **Nginx:** `real_ip_header X-Forwarded-For;` + `set_real_ip_from <ip-do-proxy>;`
+- **Apache:** módulo `mod_remoteip` com `RemoteIPHeader X-Forwarded-For`
+
+> **Atenção:** confiar em `X-Forwarded-For` sem definir quais proxies são confiáveis é falsificável — qualquer cliente pode enviar esse header com o valor que quiser. Sempre restrinja com `set_real_ip_from` / `RemoteIPTrustedProxy` ao IP real do seu proxy.
 
 ## Usando Apache em vez de Nginx
 
