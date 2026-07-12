@@ -493,6 +493,8 @@ const TEMA_CORES = [
   { id: 'azul', label: 'Azul', cor: '#2C5FA8' },
   { id: 'verde', label: 'Verde', cor: '#1E8A5C' },
   { id: 'violeta', label: 'Violeta', cor: '#7C4FBF' },
+  { id: 'amarelo', label: 'Amarelo', cor: '#B8860B' },
+  { id: 'vermelho', label: 'Vermelho', cor: '#C0392B' },
 ];
 
 function aplicarTemaCor(cor) {
@@ -505,6 +507,8 @@ const SIDE_ESTILOS = [
   { id: 'claro', label: 'Claro', cor: '#FFFFFF' },
   { id: 'slate', label: 'Suave', cor: '#1E2530' },
   { id: 'grafite', label: 'Grafite', cor: '#2A2622' },
+  { id: 'amarelo', label: 'Amarelo', cor: '#7A5A08' },
+  { id: 'vermelho', label: 'Vermelho', cor: '#8B1A1A' },
 ];
 
 function aplicarEstiloSide(estilo) {

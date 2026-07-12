@@ -44,26 +44,52 @@
 [data-theme="light"][data-color="azul"]{
   --accent:#2C5FA8; --accent-ink:#1E437A; --accent-soft:#DCE8F8;
   --login-grad:radial-gradient(circle at 20% 20%,#F4F8FD 0%,#E7F0FA 55%,#D1E3F6 100%);
+  --content:#F2F5FA; --surface:#FFFFFF; --surface-2:#E8EEF7;
 }
 [data-theme="dark"][data-color="azul"]{
   --accent:#5B9BE0; --accent-ink:#8FC2EF; --accent-soft:rgba(91,155,224,.18);
   --login-grad:radial-gradient(circle at 20% 20%,#131B24 0%,#0A0F14 55%,#000000 100%);
+  --content:#090E14; --surface:#101820; --surface-2:#141E2A;
 }
 [data-theme="light"][data-color="verde"]{
   --accent:#1E8A5C; --accent-ink:#15623F; --accent-soft:#DCF1E6;
   --login-grad:radial-gradient(circle at 20% 20%,#F2FBF6 0%,#E2F5EA 55%,#C9EAD9 100%);
+  --content:#F1F9F4; --surface:#FFFFFF; --surface-2:#E4F4EB;
 }
 [data-theme="dark"][data-color="verde"]{
   --accent:#3FC787; --accent-ink:#7EDFAC; --accent-soft:rgba(63,199,135,.18);
   --login-grad:radial-gradient(circle at 20% 20%,#0F1F17 0%,#0A1610 55%,#000000 100%);
+  --content:#080F0C; --surface:#0E1812; --surface-2:#111E16;
 }
 [data-theme="light"][data-color="violeta"]{
   --accent:#7C4FBF; --accent-ink:#5B3791; --accent-soft:#EEE3F9;
   --login-grad:radial-gradient(circle at 20% 20%,#F9F4FC 0%,#EFE6F8 55%,#DFCEF0 100%);
+  --content:#F6F2FB; --surface:#FFFFFF; --surface-2:#EDE5F7;
 }
 [data-theme="dark"][data-color="violeta"]{
   --accent:#AC8DE3; --accent-ink:#CAB2F2; --accent-soft:rgba(172,141,227,.2);
   --login-grad:radial-gradient(circle at 20% 20%,#1A1322 0%,#100B16 55%,#000000 100%);
+  --content:#0D0910; --surface:#150F1C; --surface-2:#1A1322;
+}
+[data-theme="light"][data-color="amarelo"]{
+  --accent:#B8860B; --accent-ink:#7A5A08; --accent-soft:#FBF0CC;
+  --login-grad:radial-gradient(circle at 20% 20%,#FDFBF2 0%,#FAF5D8 55%,#F5ECAC 100%);
+  --content:#FAF7ED; --surface:#FFFFFF; --surface-2:#F5EED6;
+}
+[data-theme="dark"][data-color="amarelo"]{
+  --accent:#E8C84A; --accent-ink:#F2DC84; --accent-soft:rgba(232,200,74,.18);
+  --login-grad:radial-gradient(circle at 20% 20%,#1F1C0A 0%,#141206 55%,#000000 100%);
+  --content:#100E04; --surface:#1A1708; --surface-2:#201D0A;
+}
+[data-theme="light"][data-color="vermelho"]{
+  --accent:#C0392B; --accent-ink:#922B21; --accent-soft:#FADBD8;
+  --login-grad:radial-gradient(circle at 20% 20%,#FDF5F4 0%,#FAE5E3 55%,#F5C6C2 100%);
+  --content:#FAF2F1; --surface:#FFFFFF; --surface-2:#F5E2E0;
+}
+[data-theme="dark"][data-color="vermelho"]{
+  --accent:#E57373; --accent-ink:#EF9A9A; --accent-soft:rgba(229,115,115,.18);
+  --login-grad:radial-gradient(circle at 20% 20%,#200A0A 0%,#160505 55%,#000000 100%);
+  --content:#100606; --surface:#1C0A0A; --surface-2:#220D0D;
 }
 [data-theme="light"][data-side="slate"],[data-theme="dark"][data-side="slate"]{
   --side-bg:#1E2530; --side-border:rgba(255,255,255,.08); --side-strong:#F4F6F8;
@@ -84,6 +110,26 @@
   --side-foot-bg:rgba(255,255,255,.05); --side-foot-ink:#D8D1C4;
   --side-foot-hover-bg:rgba(255,255,255,.1); --side-foot-hover-ink:#F5F1E9;
   --side-chip-bg:rgba(255,255,255,.05); --side-badge-bg:rgba(255,255,255,.12); --side-badge-ink:#E4DECF;
+}
+[data-theme="light"][data-side="amarelo"],[data-theme="dark"][data-side="amarelo"]{
+  --side-bg:#7A5A08; --side-border:rgba(255,255,255,.1); --side-strong:#FFFDE7;
+  --side-ink:#F9F0C4; --side-muted:#C9AB52;
+  --side-hover-bg:rgba(255,255,255,.08); --side-hover-ink:#FFFDE7;
+  --side-active-bg:rgba(255,255,255,.22); --side-active-ink:#3D2C00;
+  --side-active-badge-bg:rgba(255,255,255,.22); --side-active-badge-ink:#fff;
+  --side-foot-bg:rgba(0,0,0,.12); --side-foot-ink:#F9F0C4;
+  --side-foot-hover-bg:rgba(255,255,255,.1); --side-foot-hover-ink:#FFFDE7;
+  --side-chip-bg:rgba(255,255,255,.08); --side-badge-bg:rgba(255,255,255,.15); --side-badge-ink:#FFFDE7;
+}
+[data-theme="light"][data-side="vermelho"],[data-theme="dark"][data-side="vermelho"]{
+  --side-bg:#8B1A1A; --side-border:rgba(255,255,255,.1); --side-strong:#FFF5F5;
+  --side-ink:#FFD0CC; --side-muted:#C97A74;
+  --side-hover-bg:rgba(255,255,255,.08); --side-hover-ink:#FFF5F5;
+  --side-active-bg:rgba(255,255,255,.22); --side-active-ink:#3D0000;
+  --side-active-badge-bg:rgba(255,255,255,.22); --side-active-badge-ink:#fff;
+  --side-foot-bg:rgba(0,0,0,.12); --side-foot-ink:#FFD0CC;
+  --side-foot-hover-bg:rgba(255,255,255,.1); --side-foot-hover-ink:#FFF5F5;
+  --side-chip-bg:rgba(255,255,255,.08); --side-badge-bg:rgba(255,255,255,.15); --side-badge-ink:#FFF5F5;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
