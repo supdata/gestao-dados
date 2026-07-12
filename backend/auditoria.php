@@ -10,17 +10,30 @@ declare(strict_types=1);
  * trilha (ver GET /auditoria em backend/api.php).
  */
 
-/** IP do cliente, considerando proxy reverso (X-Forwarded-For) quando presente. */
+/**
+ * IP do cliente para trilha de auditoria.
+ *
+ * So honra X-Forwarded-For quando REMOTE_ADDR for um proxy confiavel
+ * listado em conf/config.php ['trusted_proxies'] (array de CIDRs/IPs).
+ * Sem isso, qualquer cliente pode forjar o IP gravado na auditoria.
+ */
 function enderecoIp(): string
 {
-    $xff = trim((string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
-    if ($xff !== '') {
-        // Pode vir "cliente, proxy1, proxy2" -- o primeiro e o IP real do
-        // cliente; os demais sao os proxies pelos quais a requisicao passou.
-        $partes = explode(',', $xff);
-        return trim($partes[0]);
+    $remoteAddr = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    $proxiesConf = config()['trusted_proxies'] ?? [];
+    /** @var list<string> $proxies */
+    $proxies = is_array($proxiesConf) ? $proxiesConf : [];
+
+    if (count($proxies) > 0 && in_array($remoteAddr, $proxies, true)) {
+        $xff = trim((string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
+        if ($xff !== '') {
+            // "cliente, proxy1, proxy2" -- o primeiro e o IP real do cliente.
+            $partes = explode(',', $xff);
+            return trim($partes[0]);
+        }
     }
-    return (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+
+    return $remoteAddr;
 }
 
 /**

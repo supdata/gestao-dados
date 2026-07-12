@@ -588,7 +588,15 @@ function despachar(string $metodo, string $caminho): void
         /** @var array<string, mixed>|false $user */
         $user = $stmt->fetch();
 
-        if ($user === false || !verifyPassword($password, (string) $user['password_hash'])) {
+        // Timing-safe: quando o usuario nao existe, rodamos um bcrypt contra
+        // um hash dummy para que o tempo de resposta seja identico ao caso em
+        // que o usuario existe mas a senha esta errada. Sem isso, medir a
+        // diferenca de tempo permite descobrir logins validos (user enumeration).
+        /** @var string $DUMMY_HASH */
+        static $DUMMY_HASH = '$2y$12$invalidhashusedfortimingsafety000000000000000000000000';
+        $hashVerificar = ($user !== false) ? (string) $user['password_hash'] : $DUMMY_HASH;
+        $senhaCorreta  = verifyPassword($password, $hashVerificar) && $user !== false;
+        if (!$senhaCorreta) {
             registrarTentativaFalhaLogin($username, $ip);
             registrarAuditoria('auth', null, 'login_falha', $username);
             responderErro(401, 'Usuario ou senha invalidos.');
@@ -625,7 +633,7 @@ function despachar(string $metodo, string $caminho): void
             } catch (Throwable $e) {
                 registrarAuditoria('auth', (int) $user['id'], 'mfa_envio_falhou', (string) $user['username']);
                 error_log('Falha ao enviar codigo MFA: ' . $e->getMessage());
-                $detalhe = ($cfg['app_debug'] ?? false) === true ? $e->getMessage() : null;
+                $detalhe = (config()['app_debug'] ?? false) === true ? $e->getMessage() : null;
                 responderErro(400, 'Nao foi possivel enviar o codigo de verificacao.' . ($detalhe !== null ? ' ' . $detalhe : ''));
             }
             registrarAuditoria('auth', (int) $user['id'], 'login_mfa_pendente', (string) $user['username']);
@@ -703,7 +711,7 @@ function despachar(string $metodo, string $caminho): void
             );
         } catch (Throwable $e) {
             error_log('Falha ao reenviar codigo MFA: ' . $e->getMessage());
-            $detalhe = ($cfg['app_debug'] ?? false) === true ? $e->getMessage() : null;
+            $detalhe = (config()['app_debug'] ?? false) === true ? $e->getMessage() : null;
             responderErro(400, 'Nao foi possivel reenviar o codigo.' . ($detalhe !== null ? ' ' . $detalhe : ''));
         }
         responderJson(['mfa_token' => $novoToken]);
@@ -1407,6 +1415,10 @@ function despachar(string $metodo, string $caminho): void
         foreach ($linhas as $linha) {
             $campos = array_map(function ($c) use ($linha) {
                 $v = (string) ($linha[$c] ?? '');
+                // Neutraliza CSV injection: = + - @ no inicio da celula
+                if (preg_match('/^[=+\-@]/', $v)) {
+                    $v = "'" . $v;
+                }
                 $v = str_replace('"', '""', $v);
                 return preg_match('/[;"\n]/', $v) ? '"' . $v . '"' : $v;
             }, $colunas);
@@ -1675,18 +1687,23 @@ function despachar(string $metodo, string $caminho): void
                     'Objeto', 'Tipo_Objeto', 'Solicitante', 'Aprovador', 'Status', 'Resultado',
                 ]);
                 foreach ($rowsExp as $row) {
-                    fputcsv($out, [
-                        (string) ($row['codigo']      ?? ''),
-                        (string) ($row['data']         ?? ''),
-                        (string) ($row['ambiente']     ?? ''),
-                        (string) ($row['tipo']         ?? ''),
-                        (string) ($row['descricao']    ?? ''),
-                        (string) ($row['objeto_nome']  ?? ''),
-                        (string) ($row['objeto_tipo']  ?? ''),
-                        (string) ($row['solicitante']  ?? ''),
-                        (string) ($row['aprovador']    ?? ''),
-                        (string) ($row['status']       ?? ''),
-                        (string) ($row['resultado']    ?? ''),
+                    // Neutraliza CSV injection: celulas que iniciam com = + - @
+                // recebem apostrofo prefixado para impedir execucao no Excel/Sheets.
+                $csvSanitize = static function (string $v): string {
+                    return preg_match('/^[=+\-@]/', $v) ? "'" . $v : $v;
+                };
+                fputcsv($out, [
+                        $csvSanitize((string) ($row['codigo']      ?? '')),
+                        $csvSanitize((string) ($row['data']         ?? '')),
+                        $csvSanitize((string) ($row['ambiente']     ?? '')),
+                        $csvSanitize((string) ($row['tipo']         ?? '')),
+                        $csvSanitize((string) ($row['descricao']    ?? '')),
+                        $csvSanitize((string) ($row['objeto_nome']  ?? '')),
+                        $csvSanitize((string) ($row['objeto_tipo']  ?? '')),
+                        $csvSanitize((string) ($row['solicitante']  ?? '')),
+                        $csvSanitize((string) ($row['aprovador']    ?? '')),
+                        $csvSanitize((string) ($row['status']       ?? '')),
+                        $csvSanitize((string) ($row['resultado']    ?? '')),
                     ]);
                 }
                 fclose($out);

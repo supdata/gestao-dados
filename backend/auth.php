@@ -317,6 +317,13 @@ function exigirLogin(): array
         responderErro(401, 'Usuario nao encontrado.');
     }
 
+    // Conta desativada: rejeita mesmo com token JWT ainda valido (expira em
+    // ate 8h apos emissao). Sem essa checagem, desativar o usuario nao teria
+    // efeito imediato -- o token continuaria funcionando ate expirar.
+    if ((int) ($user['ativo'] ?? 1) === 0) {
+        responderErro(401, 'Conta desativada.');
+    }
+
     return $user;
 }
 

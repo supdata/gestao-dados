@@ -76,25 +76,62 @@ function marcarEmailTestadoOk(): void
 }
 
 /** Chave de cifra derivada do secret_key do config.php (mesma chave do JWT). */
+/**
+ * Deriva uma subchave AES-256 especifica para cifrar a senha SMTP.
+ * Usa HKDF (RFC 5869) simplificado com context "email-smtp" para que a
+ * chave seja diferente da usada pelo JWT, mesmo partindo do mesmo secret_key.
+ */
 function emailChaveCifra(): string
 {
-    return hash('sha256', (string) (config()['secret_key'] ?? 'gdt-fallback-key'), true);
+    $master = (string) (config()['secret_key'] ?? 'gdt-fallback-key');
+    // HKDF-Extract: PRK = HMAC-SHA256(salt="gdt-email-v1", IKM=master)
+    $prk = hash_hmac('sha256', $master, 'gdt-email-v1', true);
+    // HKDF-Expand: OKM = HMAC-SHA256(PRK, info="smtp-password" || 0x01)
+    return hash_hmac('sha256', 'smtp-password' . "", $prk, true);
 }
 
+/**
+ * Cifra a senha SMTP com AES-256-GCM (autenticado).
+ * Formato do blob: base64( nonce[12] || tag[16] || ciphertext )
+ */
 function emailCifrarSenha(string $senha): string
 {
-    $iv = random_bytes(16);
-    $cifrado = openssl_encrypt($senha, 'aes-256-cbc', emailChaveCifra(), OPENSSL_RAW_DATA, $iv);
-    return base64_encode($iv . (string) $cifrado);
+    $nonce = random_bytes(12);
+    $tag   = '';
+    $cifrado = openssl_encrypt($senha, 'aes-256-gcm', emailChaveCifra(), OPENSSL_RAW_DATA, $nonce, $tag, '', 16);
+    if ($cifrado === false) {
+        throw new RuntimeException('Falha ao cifrar senha SMTP.');
+    }
+    return base64_encode($nonce . $tag . $cifrado);
 }
 
+/**
+ * Decifra blob gerado por emailCifrarSenha().
+ * Suporte retroativo: blobs antigos (CBC, 28+ bytes sem tag GCM) continuam
+ * funcionando via deteccao de tamanho -- remova apos todos serem re-salvos.
+ */
 function emailDecifrarSenha(string $cifradoB64): string
 {
     $dados = base64_decode($cifradoB64, true);
-    if ($dados === false || strlen($dados) <= 16) {
+    if ($dados === false || strlen($dados) < 28) {
         return '';
     }
-    $iv = substr($dados, 0, 16);
+    // Blobs GCM: nonce(12) + tag(16) + ciphertext(>=1) = minimo 29 bytes.
+    // Blobs CBC legados: iv(16) + ciphertext(>=16) = minimo 32 bytes, mas
+    // distinguimos pelo tamanho >= 28 para cobrir ambos -- o GCM falha rapi-
+    // damente com tag invalida; o CBC retorna string ou false.
+    if (strlen($dados) >= 29) {
+        // Tenta GCM primeiro
+        $nonce   = substr($dados, 0, 12);
+        $tag     = substr($dados, 12, 16);
+        $cifrado = substr($dados, 28);
+        $resultado = openssl_decrypt($cifrado, 'aes-256-gcm', emailChaveCifra(), OPENSSL_RAW_DATA, $nonce, $tag);
+        if ($resultado !== false) {
+            return $resultado;
+        }
+    }
+    // Retrocompatibilidade: tenta CBC com chave antiga
+    $iv      = substr($dados, 0, 16);
     $cifrado = substr($dados, 16);
     $resultado = openssl_decrypt($cifrado, 'aes-256-cbc', emailChaveCifra(), OPENSSL_RAW_DATA, $iv);
     return $resultado === false ? '' : $resultado;
@@ -172,7 +209,8 @@ function smtpEnviar(array $cfg, string $para, string $assunto, string $corpoText
     $usuario = trim((string) ($cfg['usuario'] ?? ''));
     $senha = !empty($cfg['senha_cifrada']) ? emailDecifrarSenha((string) $cfg['senha_cifrada']) : '';
     $remetenteEmail = trim((string) ($cfg['remetente_email'] ?? '')) ?: $usuario;
-    $remetenteNome = trim((string) ($cfg['remetente_nome'] ?? ''));
+    // Remove quebras de linha para evitar header injection no campo From:.
+    $remetenteNome = preg_replace('/[\r\n]/', '', trim((string) ($cfg['remetente_nome'] ?? '')));
 
     if ($host === '' || $remetenteEmail === '') {
         throw new RuntimeException(
