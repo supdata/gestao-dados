@@ -332,38 +332,38 @@ function dicionarioVerificarDuplicado(string $tabela, array $body, ?array $atual
 $MODULOS = [
     'acessos' => [
         'tabela' => tableName('acessos'),
-        'colunas' => ['data', 'usuario', 'tipo', 'servidor', 'objeto', 'nivel', 'justificativa', 'solicitante', 'aprovador', 'revisao', 'status', 'obs'],
-        'busca' => ['usuario', 'servidor', 'objeto', 'nivel', 'justificativa', 'solicitante', 'aprovador', 'status'],
+        'colunas' => ['data', 'usuario', 'tipo', 'servidor', 'objeto', 'nivel', 'justificativa', 'solicitante', 'aprovador', 'revisao', 'status', 'obs', 'criado_por'],
+        'busca' => ['usuario', 'servidor', 'objeto', 'nivel', 'justificativa', 'solicitante', 'aprovador', 'status', 'criado_por'],
         'ordem' => 'data',
     ],
     'mudancas' => [
         'tabela' => tableName('mudancas'),
-        'colunas' => ['codigo', 'data', 'ambiente', 'tipo', 'descricao', 'script', 'rollback', 'solicitante', 'aprovador', 'status', 'resultado'],
-        'busca' => ['codigo', 'descricao', 'solicitante', 'aprovador', 'status', 'ambiente'],
+        'colunas' => ['codigo', 'data', 'ambiente', 'tipo', 'descricao', 'script', 'rollback', 'solicitante', 'aprovador', 'status', 'resultado', 'criado_por'],
+        'busca' => ['codigo', 'descricao', 'solicitante', 'aprovador', 'status', 'ambiente', 'criado_por'],
         'ordem' => 'data',
     ],
     'backup' => [
         'tabela' => tableName('backup_politicas'),
-        'colunas' => ['banco', 'criticidade', 'tipo', 'frequencia', 'horario', 'retencao', 'local', 'rpo', 'rto', 'responsavel'],
-        'busca' => ['banco', 'tipo', 'local', 'responsavel'],
+        'colunas' => ['banco', 'criticidade', 'tipo', 'frequencia', 'horario', 'retencao', 'local', 'rpo', 'rto', 'responsavel', 'criado_por'],
+        'busca' => ['banco', 'tipo', 'local', 'responsavel', 'criado_por'],
         'ordem' => 'id',
     ],
     'restore' => [
         'tabela' => tableName('restore_testes'),
-        'colunas' => ['data', 'banco', 'backup', 'tempo', 'resultado', 'por', 'obs'],
-        'busca' => ['banco', 'backup', 'por', 'resultado'],
+        'colunas' => ['data', 'banco', 'backup', 'tempo', 'resultado', 'por', 'obs', 'criado_por'],
+        'busca' => ['banco', 'backup', 'por', 'resultado', 'criado_por'],
         'ordem' => 'data',
     ],
     'dicionario' => [
         'tabela' => tableName('dicionario_dados'),
-        'colunas' => ['servidor', 'banco', 'schema_nome', 'tabela', 'coluna', 'tipo_dado', 'permite_nulo', 'descricao', 'classificacao', 'origem', 'obs'],
-        'busca' => ['servidor', 'banco', 'tabela', 'coluna', 'tipo_dado', 'descricao', 'classificacao'],
+        'colunas' => ['servidor', 'banco', 'schema_nome', 'tabela', 'coluna', 'tipo_dado', 'permite_nulo', 'descricao', 'classificacao', 'origem', 'obs', 'criado_por'],
+        'busca' => ['servidor', 'banco', 'tabela', 'coluna', 'tipo_dado', 'descricao', 'classificacao', 'criado_por'],
         'ordem' => 'id',
     ],
     'integracoes' => [
         'tabela' => tableName('integracoes'),
-        'colunas' => ['nome', 'origem', 'ip_origem', 'destino', 'ip_destino', 'tipo', 'direcao', 'mecanismo', 'frequencia', 'dados_trafegados', 'classificacao', 'criticidade', 'resp_tecnico', 'resp_negocio', 'ambiente', 'status', 'ultima_revisao', 'obs'],
-        'busca' => ['nome', 'origem', 'ip_origem', 'destino', 'ip_destino', 'tipo', 'mecanismo', 'resp_tecnico', 'resp_negocio', 'status'],
+        'colunas' => ['nome', 'origem', 'ip_origem', 'destino', 'ip_destino', 'tipo', 'direcao', 'mecanismo', 'frequencia', 'dados_trafegados', 'classificacao', 'criticidade', 'resp_tecnico', 'resp_negocio', 'ambiente', 'status', 'ultima_revisao', 'obs', 'criado_por'],
+        'busca' => ['nome', 'origem', 'ip_origem', 'destino', 'ip_destino', 'tipo', 'mecanismo', 'resp_tecnico', 'resp_negocio', 'status', 'criado_por'],
         'ordem' => 'nome',
     ],
 ];
@@ -389,22 +389,22 @@ $COLUNA_LABELS = [
         'data' => 'Data da concessão', 'usuario' => 'Usuário / login', 'tipo' => 'Tipo de conta',
         'servidor' => 'Servidor', 'objeto' => 'Banco / objeto', 'nivel' => 'Nível de acesso', 'justificativa' => 'Justificativa',
         'solicitante' => 'Solicitante', 'aprovador' => 'Aprovador', 'revisao' => 'Revisão prevista',
-        'status' => 'Status', 'obs' => 'Observações',
+        'status' => 'Status', 'obs' => 'Observações', 'criado_por' => 'Adicionado por',
     ],
     'mudancas' => [
         'codigo' => 'Chamado', 'data' => 'Data', 'ambiente' => 'Ambiente', 'tipo' => 'Tipo',
         'descricao' => 'Descrição da mudança', 'script' => 'Objetos',
         'rollback' => 'Plano de rollback', 'solicitante' => 'Solicitante', 'aprovador' => 'Aprovador',
-        'status' => 'Status', 'resultado' => 'Resultado / observações',
+        'status' => 'Status', 'resultado' => 'Resultado / observações', 'criado_por' => 'Adicionado por',
     ],
     'backup' => [
         'banco' => 'Banco', 'criticidade' => 'Criticidade', 'tipo' => 'Tipo de backup',
         'frequencia' => 'Frequência', 'horario' => 'Horário', 'retencao' => 'Retenção',
-        'local' => 'Local de armazenamento', 'rpo' => 'RPO alvo', 'rto' => 'RTO alvo', 'responsavel' => 'Responsável',
+        'local' => 'Local de armazenamento', 'rpo' => 'RPO alvo', 'rto' => 'RTO alvo', 'responsavel' => 'Responsável', 'criado_por' => 'Adicionado por',
     ],
     'restore' => [
         'data' => 'Data do teste', 'banco' => 'Banco', 'backup' => 'Backup testado', 'tempo' => 'Tempo de restore',
-        'resultado' => 'Resultado', 'por' => 'Testado por', 'obs' => 'Observações',
+        'resultado' => 'Resultado', 'por' => 'Testado por', 'obs' => 'Observações', 'criado_por' => 'Adicionado por',
     ],
     'dicionario' => [
         'servidor' => 'Servidor', 'banco' => 'Banco', 'schema_nome' => 'Schema', 'tabela' => 'Tabela', 'coluna' => 'Coluna',
@@ -417,7 +417,7 @@ $COLUNA_LABELS = [
         'tipo' => 'Tipo', 'direcao' => 'Direção', 'mecanismo' => 'Mecanismo', 'frequencia' => 'Frequência',
         'dados_trafegados' => 'Dados trafegados', 'classificacao' => 'Classificação do dado',
         'criticidade' => 'Criticidade', 'resp_tecnico' => 'Responsável técnico', 'resp_negocio' => 'Responsável de negócio',
-        'ambiente' => 'Ambiente', 'status' => 'Status', 'ultima_revisao' => 'Última revisão', 'obs' => 'Observações',
+        'ambiente' => 'Ambiente', 'status' => 'Status', 'ultima_revisao' => 'Última revisão', 'obs' => 'Observações', 'criado_por' => 'Adicionado por',
     ],
 ];
 
@@ -1716,6 +1716,7 @@ function despachar(string $metodo, string $caminho): void
             exigirAcessoModulo($user, 'mudancas', true);
             $body    = corpoRequisicao();
             $objetos = is_array($body['objetos'] ?? null) ? $body['objetos'] : [];
+            $body['criado_por'] = (string) $user['username'];
             $item    = crudCriar($modMud['tabela'], $modMud['colunas'], $body);
             sincronizarObjMudanca($pdo, (int) $item['id'], $objetos);
             $item['objetos'] = obterObjMudanca($pdo, (int) $item['id']);
@@ -1785,6 +1786,7 @@ function despachar(string $metodo, string $caminho): void
                 exigirAcessoModulo($user, 'mudancas', true);
                 $body    = corpoRequisicao();
                 $objetos = is_array($body['objetos'] ?? null) ? $body['objetos'] : [];
+                unset($body['criado_por']);
                 $antes   = crudObter($modMud['tabela'], $id);
                 $item    = crudAtualizar($modMud['tabela'], $modMud['colunas'], $id, $body);
                 if ($item === null) {
@@ -1831,6 +1833,8 @@ function despachar(string $metodo, string $caminho): void
             if ($prefixo === 'dicionario') {
                 dicionarioVerificarDuplicado($modulo['tabela'], $body);
             }
+            // Registra quem criou -- definido pelo servidor, nunca pelo cliente.
+            $body['criado_por'] = (string) $user['username'];
             $item = crudCriar($modulo['tabela'], $modulo['colunas'], $body);
             registrarAuditoria($prefixo, (int) $item['id'], 'criar', (string) $user['username'], null, $item);
             responderJson($item, 201);
@@ -1887,6 +1891,8 @@ function despachar(string $metodo, string $caminho): void
                 if ($prefixo === 'dicionario' && $antes !== null) {
                     dicionarioVerificarDuplicado($modulo['tabela'], $body, $antes, $id);
                 }
+                // criado_por e imutavel: remove do corpo para nao sobrescrever.
+                unset($body['criado_por']);
                 $item = crudAtualizar($modulo['tabela'], $modulo['colunas'], $id, $body);
                 if ($item === null) {
                     responderErro(404, 'Registro nao encontrado.');
