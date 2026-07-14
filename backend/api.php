@@ -907,7 +907,7 @@ function despachar(string $metodo, string $caminho): void
         // Se a senha vier em branco, gera uma senha temporária aleatória
         // e marcamos o usuario para trocar no primeiro login.
         $senhaTemporaria = false;
-        if ($password === '' || $password === null) {
+        if ($password === '') {
             $password = bin2hex(random_bytes(6)); // 12 caracteres hex
             $senhaTemporaria = true;
         }
@@ -2123,3 +2123,4 @@ try {
 }
 
 responderErro(404, 'Rota nao encontrada.');
+                      
