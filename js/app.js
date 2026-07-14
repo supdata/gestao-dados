@@ -2063,15 +2063,18 @@ async function renderEmailConfig() {
     <div class="email-cfg-grid">
       <div class="fld full"><label>${esc(tr('Servidor (host)'))}</label><input type="text" id="cfgHost" value="${esc(cfg.host)}" placeholder="smtp.seuprovedor.com"></div>
       <div class="fld"><label>${esc(tr('Porta'))}</label><input type="number" id="cfgPorta" value="${esc(cfg.porta || 587)}"></div>
-      <div class="fld"><label>${esc(tr('Segurança'))}</label><select id="cfgSeguranca">
+      <div class="fld"><label>${esc(tr('Segurança'))}</label><select id="cfgSeguranca" data-oninput="checkSmtpWarn">
         <option value="tls" ${cfg.seguranca === 'tls' ? 'selected' : ''}>TLS (STARTTLS, porta 587)</option>
         <option value="ssl" ${cfg.seguranca === 'ssl' ? 'selected' : ''}>SSL (porta 465)</option>
         <option value="none" ${cfg.seguranca === 'none' ? 'selected' : ''}>${esc(tr('Nenhuma'))}</option>
       </select></div>
-      <div class="fld"><label>${esc(tr('Usuário'))}</label><input type="text" id="cfgUsuario" value="${esc(cfg.usuario)}"></div>
-      <div class="fld"><label>${esc(tr('Senha'))} ${cfg.senha_configurada ? `<span class="hint-inline">(${esc(tr('já configurada — deixe em branco para manter'))})</span>` : ''}</label><input type="password" id="cfgSenha" placeholder="${cfg.senha_configurada ? '••••••••' : ''}"></div>
+      <div class="fld"><label>${esc(tr('Usuário'))}</label><input type="text" id="cfgUsuario" value="${esc(cfg.usuario)}" data-oninput="checkSmtpWarn"></div>
+      <div class="fld"><label>${esc(tr('Senha'))} ${cfg.senha_configurada ? `<span class="hint-inline">(${esc(tr('já configurada — deixe em branco para manter'))})</span>` : ''}</label><input type="password" id="cfgSenha" placeholder="${cfg.senha_configurada ? '••••••••' : ''}" data-oninput="checkSmtpWarn"></div>
       <div class="fld"><label>${esc(tr('Nome do remetente'))}</label><input type="text" id="cfgRemetenteNome" value="${esc(cfg.remetente_nome)}"></div>
       <div class="fld"><label>${esc(tr('E-mail do remetente'))}</label><input type="email" id="cfgRemetenteEmail" value="${esc(cfg.remetente_email)}"></div>
+    </div>
+    <div id="smtpNoneWarn" style="display:none;margin-top:14px;padding:10px 13px;background:var(--amber-soft);color:var(--amber);border-radius:var(--r-sm);font-size:12.5px;display:none">
+      <strong>⚠ ${esc(tr('Atenção:'))}</strong> ${esc(tr('A conexão está sem criptografia (Nenhuma). Usuário e senha serão transmitidos em texto claro na rede. Use TLS ou SSL sempre que possível.'))}
     </div>
     <div class="email-cfg-actions">
       <button class="btn btn-primary" data-act="saveEmailConfig">${esc(tr('Salvar'))}</button>
@@ -2079,6 +2082,17 @@ async function renderEmailConfig() {
       <button class="btn btn-ghost" data-act="testarEmailConfig">${esc(tr('Enviar teste'))}</button>
     </div>
   </div>`;
+  checkSmtpWarn();
+}
+
+function checkSmtpWarn() {
+  const sel = $('cfgSeguranca');
+  const warn = $('smtpNoneWarn');
+  if (!sel || !warn) return;
+  const isNone = sel.value === 'none';
+  const temCred = ($('cfgUsuario') && $('cfgUsuario').value.trim() !== '') ||
+                  ($('cfgSenha')   && $('cfgSenha').value !== '');
+  warn.style.display = (isNone && temCred) ? '' : 'none';
 }
 
 async function saveEmailConfig() {
@@ -3411,6 +3425,7 @@ const SUBMIT_ACTIONS = {
 };
 
 const INPUT_ACTIONS = {
+  checkSmtpWarn,
   filterCadastroDrawer,
   filterTagOptions,
   syncMultitext,
