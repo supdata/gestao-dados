@@ -26,9 +26,12 @@ function crudListar(string $tabela, array $camposBusca, string $campoOrdem, stri
         // padrao com o LIKE normal.
         $operador = dbDriver() === 'pgsql' ? 'ILIKE' : 'LIKE';
         $buscaCond = [];
+        // Escapa % e _ para nao serem interpretados como coringas LIKE,
+        // exceto os que o proprio sistema adiciona nas extremidades.
+        $qEscapado = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q);
         foreach ($camposBusca as $campo) {
             $buscaCond[] = quoteIdent($campo) . " {$operador} ?";
-            $args[] = "%{$q}%";
+            $args[] = "%{$qEscapado}%";
         }
         $condicoes[] = '(' . implode(' OR ', $buscaCond) . ')';
     }

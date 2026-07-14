@@ -2175,7 +2175,10 @@ async function exportCsv(key, filtros) {
     } else {
       v = v || '';
     }
-    v = String(v).replace(/"/g, '""');
+    // Neutraliza injecao de formula CSV (Excel interpreta =, +, -, @, TAB, CR
+    // como inicio de formula quando sao o primeiro caractere de uma celula).
+    if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+    v = v.replace(/"/g, '""');
     return /[;"\n]/.test(v) ? `"${v}"` : v;
   }).join(';'));
   const csv = '﻿' + [head, ...lines].join('\n');

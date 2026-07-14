@@ -27,9 +27,16 @@ function enderecoIp(): string
     if (count($proxies) > 0 && in_array($remoteAddr, $proxies, true)) {
         $xff = trim((string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
         if ($xff !== '') {
-            // "cliente, proxy1, proxy2" -- o primeiro e o IP real do cliente.
-            $partes = explode(',', $xff);
-            return trim($partes[0]);
+            // Pega o IP mais a DIREITA que nao seja um proxy confiavel.
+            // Pegar partes[0] (mais a esquerda) permite spoofing: o atacante
+            // envia "X-Forwarded-For: 9.9.9.9" e o proxy ANEXA o IP real,
+            // mas partes[0] fica com o valor forjado.
+            $partes = array_reverse(array_map('trim', explode(',', $xff)));
+            foreach ($partes as $parte) {
+                if ($parte !== '' && !in_array($parte, $proxies, true)) {
+                    return $parte;
+                }
+            }
         }
     }
 

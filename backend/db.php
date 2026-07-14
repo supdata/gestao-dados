@@ -28,6 +28,22 @@ function config(): array
     }
 
     $cfg = require $arquivo;
+
+    // Validacao de seguranca: secret_key deve existir, ter ao menos 32 bytes
+    // e nao ser o valor de exemplo. Um secret_key fraco ou publico torna
+    // todos os tokens JWT e hashes de MFA forjaveis.
+    $sk = (string) ($cfg['secret_key'] ?? '');
+    $exampleKey = 'troque-esta-chave-por-um-valor-aleatorio-e-grande';
+    if ($sk === '' || strlen($sk) < 32 || $sk === $exampleKey) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'detail' => 'secret_key invalido: deve ter ao menos 32 caracteres e nao pode ser o valor de exemplo. '
+                      . 'Gere um com: php -r "echo bin2hex(random_bytes(32));"',
+        ]);
+        exit;
+    }
+
     return $cfg;
 }
 
@@ -282,7 +298,14 @@ function db(): PDO
             $caminho = $cfg['db_sqlite_path'] ?? (__DIR__ . '/../db/database.db');
             $pastaSqlite = dirname($caminho);
             if (!is_dir($pastaSqlite)) {
-                @mkdir($pastaSqlite, 0775, true);
+                // 0700: apenas o usuario do servidor web consegue listar/ler.
+                // Evita download direto do banco por URL em deploys onde a
+                // raiz do projeto coincide com o docroot.
+                @mkdir($pastaSqlite, 0700, true);
+            }
+            // 0600 no arquivo: leitura/escrita so pelo dono (servidor web).
+            if (is_file($caminho)) {
+                @chmod($caminho, 0600);
             }
             $dsn = "sqlite:{$caminho}";
             break;

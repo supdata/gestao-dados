@@ -83,7 +83,9 @@ function marcarEmailTestadoOk(): void
  */
 function emailChaveCifra(): string
 {
-    $master = (string) (config()['secret_key'] ?? 'gdt-fallback-key');
+    // Sem fallback: se secret_key estiver ausente, o bootstrap de db.php ja
+    // aborta antes de chegar aqui. Nao ha razao para continuar com chave publica.
+    $master = (string) config()['secret_key'];
     // HKDF-Extract: PRK = HMAC-SHA256(salt="gdt-email-v1", IKM=master)
     $prk = hash_hmac('sha256', $master, 'gdt-email-v1', true);
     // HKDF-Expand: OKM = HMAC-SHA256(PRK, info="smtp-password" || 0x01)

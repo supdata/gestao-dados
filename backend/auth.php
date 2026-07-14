@@ -99,7 +99,12 @@ function decodificarToken(string $token): ?array
     if (!is_array($dados)) {
         return null;
     }
-    if (isset($dados['exp']) && time() > (int) $dados['exp']) {
+    // Exige que exp esteja presente: token sem exp seria eterno.
+    // criarToken() sempre define exp; se faltar, e token adulterado.
+    if (!isset($dados['exp'])) {
+        return null;
+    }
+    if (time() > (int) $dados['exp']) {
         return null; // expirado
     }
 

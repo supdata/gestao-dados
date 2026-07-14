@@ -592,9 +592,19 @@ function despachar(string $metodo, string $caminho): void
         // um hash dummy para que o tempo de resposta seja identico ao caso em
         // que o usuario existe mas a senha esta errada. Sem isso, medir a
         // diferenca de tempo permite descobrir logins validos (user enumeration).
-        /** @var string $DUMMY_HASH */
-        static $DUMMY_HASH = '$2y$12$invalidhashusedfortimingsafety000000000000000000000000';
-        $hashVerificar = ($user !== false) ? (string) $user['password_hash'] : $DUMMY_HASH;
+        //
+        // IMPORTANTE: o hash dummy deve ser VALIDO e ter o MESMO cost usado por
+        // hashPassword() (PASSWORD_BCRYPT sem cost explicito = 10). Um hash
+        // invalido retorna false imediatamente, sem rodar bcrypt, recriando
+        // a diferenca de tempo que queremos eliminar.
+        static $DUMMY_HASH = null;
+        if ($DUMMY_HASH === null) {
+            // Gerado UMA VEZ por processo PHP; o custo e identico ao dos usuarios reais.
+            $DUMMY_HASH = password_hash('gdt-timing-sentinel', PASSWORD_BCRYPT);
+        }
+        /** @var string $dummyHash */
+        $dummyHash    = (string) $DUMMY_HASH;
+        $hashVerificar = ($user !== false) ? (string) $user['password_hash'] : $dummyHash;
         $senhaCorreta  = verifyPassword($password, $hashVerificar) && $user !== false;
         if (!$senhaCorreta) {
             registrarTentativaFalhaLogin($username, $ip);
@@ -603,8 +613,11 @@ function despachar(string $metodo, string $caminho): void
         }
 
         if ((int) ($user['ativo'] ?? 1) === 0) {
+            // Nao revelar que a senha estava correta (enumeracao de credenciais).
+            // O motivo real fica apenas na auditoria.
+            registrarTentativaFalhaLogin($username, $ip);
             registrarAuditoria('auth', null, 'login_falha_conta_desativada', $username);
-            responderErro(401, 'Conta desativada. Entre em contato com o administrador.');
+            responderErro(401, 'Usuario ou senha invalidos.');
         }
 
         limparTentativasLogin($username, $ip);
@@ -1348,11 +1361,27 @@ function despachar(string $metodo, string $caminho): void
             // pagina de login, que carrega isso a cada acesso) com um
             // arquivo gigante. ~2MB em base64 e bem mais que suficiente pra
             // um logo.
-            if (!str_starts_with($logoData, 'data:image/')) {
-                responderErro(422, 'A logo precisa ser uma imagem (PNG, JPG, SVG ou WEBP).');
+            // SVG pode conter <script> e ser usado como vetor de XSS --
+            // restringir a formatos rasterizados sem capacidade de script.
+            $tiposPermitidos = ['data:image/png;', 'data:image/jpeg;', 'data:image/webp;', 'data:image/gif;'];
+            $tipoOk = false;
+            foreach ($tiposPermitidos as $prefixoMime) {
+                if (str_starts_with($logoData, $prefixoMime)) {
+                    $tipoOk = true;
+                    break;
+                }
+            }
+            if (!$tipoOk) {
+                responderErro(422, 'A logo precisa ser PNG, JPEG, WEBP ou GIF (SVG nao e aceito por seguranca).');
             }
             if (strlen($logoData) > 2_800_000) {
                 responderErro(422, 'Logo muito grande. Envie uma imagem com no maximo ~2MB.');
+            }
+            // Verificacao adicional: o binario decodificado deve ser uma
+            // imagem valida (evita que um arquivo disfarced de imagem seja aceito).
+            $binario = base64_decode(substr($logoData, (int) strpos($logoData, ',') + 1), true);
+            if ($binario === false || @getimagesizefromstring($binario) === false) {
+                responderErro(422, 'O arquivo enviado nao e uma imagem valida.');
             }
         }
 
@@ -1416,7 +1445,7 @@ function despachar(string $metodo, string $caminho): void
             $campos = array_map(function ($c) use ($linha) {
                 $v = (string) ($linha[$c] ?? '');
                 // Neutraliza CSV injection: = + - @ no inicio da celula
-                if (preg_match('/^[=+\-@]/', $v)) {
+                if (preg_match('/^[=+\-@\t\r]/', $v)) {
                     $v = "'" . $v;
                 }
                 $v = str_replace('"', '""', $v);
@@ -1442,8 +1471,10 @@ function despachar(string $metodo, string $caminho): void
 
     // ---- /dashboard ----------------------------------------------------
     if ($metodo === 'GET' && $caminho === '/dashboard/info') {
-        // Sem login de proposito -- a tela de login mostra o motor de
-        // banco antes mesmo de entrar.
+        // Login exigido: expor motor e versao sem autenticacao permite
+        // fingerprinting da infraestrutura. A tela de login nao precisa
+        // dessa informacao; o front pode exibi-la so apos o login.
+        exigirLogin();
         responderJson(['motor_banco' => dbEngineName(), 'versao' => '1.0.0']);
     }
 
@@ -1690,7 +1721,7 @@ function despachar(string $metodo, string $caminho): void
                     // Neutraliza CSV injection: celulas que iniciam com = + - @
                 // recebem apostrofo prefixado para impedir execucao no Excel/Sheets.
                 $csvSanitize = static function (string $v): string {
-                    return preg_match('/^[=+\-@]/', $v) ? "'" . $v : $v;
+                    return preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v;
                 };
                 fputcsv($out, [
                         $csvSanitize((string) ($row['codigo']      ?? '')),
