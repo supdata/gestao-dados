@@ -2123,4 +2123,3 @@ try {
 }
 
 responderErro(404, 'Rota nao encontrada.');
-                      

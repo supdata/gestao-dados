@@ -497,4 +497,6 @@ header('Content-Type: text/html; charset=utf-8');
 <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/js/api.js?v=<?= @filemtime(__DIR__ . '/js/api.js') ?: time() ?>"></script>
 <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/js/vendor/jspdf.umd.min.js"></script>
 <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/js/vendor/jspdf.plugin.autotable.min.js"></script>
-<script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/js/app.js?v=<?= @filemtime(__DIR__ . '
+<script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/js/app.js?v=<?= @filemtime(__DIR__ . '/js/app.js') ?: time() ?>"></script>
+</body>
+</html>
