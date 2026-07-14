@@ -701,6 +701,13 @@ function migrate(): void
     ensureColumn($pdo, tableName('dicionario_dados'), 'servidor', 'VARCHAR(150)');
     ensureColumn($pdo, tableName('integracoes'), 'ip_origem', 'VARCHAR(45)');
     ensureColumn($pdo, tableName('integracoes'), 'ip_destino', 'VARCHAR(45)');
+    // Campo "Adicionado por": registra o username de quem criou cada registro.
+    ensureColumn($pdo, tableName('acessos'),         'criado_por', 'VARCHAR(150)');
+    ensureColumn($pdo, tableName('mudancas'),         'criado_por', 'VARCHAR(150)');
+    ensureColumn($pdo, tableName('backup_politicas'), 'criado_por', 'VARCHAR(150)');
+    ensureColumn($pdo, tableName('restore_testes'),   'criado_por', 'VARCHAR(150)');
+    ensureColumn($pdo, tableName('dicionario_dados'), 'criado_por', 'VARCHAR(150)');
+    ensureColumn($pdo, tableName('integracoes'),      'criado_por', 'VARCHAR(150)');
 
     // Acessos > Nivel de acesso passou de lista fixa (antigo OPT.nivel no
     // front) pra categoria do Cadastro -- diferente das categorias abaixo,

@@ -129,6 +129,7 @@ const SCHEMA = {
       { k: 'revisao', l: 'Revisão prevista', t: 'date', table: 1, mono: 1 },
       { k: 'status', l: 'Status', t: 'select', o: OPT.statusAc, table: 1, pill: 1 },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+      { k: 'criado_por', l: 'Adicionado por', t: 'text', table: 1, ro: 1 },
     ] },
   mudancas: { title: 'Registro de mudanças', sub: 'Alterações em produção com aprovação e rollback', singular: 'mudança',
     fields: [
@@ -143,6 +144,7 @@ const SCHEMA = {
       { k: 'aprovador', l: 'Aprovador', t: 'text', table: 1 },
       { k: 'status', l: 'Status', t: 'select', cat: 'mudanca_status', table: 1, pill: 1 },
       { k: 'resultado', l: 'Resultado / observações', t: 'textarea', full: 1, trunc: 1 },
+      { k: 'criado_por', l: 'Adicionado por', t: 'text', table: 1, ro: 1 },
     ] },
   backup: { title: 'Política de backup', sub: 'Regra de backup por banco', singular: 'política',
     fields: [
@@ -156,6 +158,7 @@ const SCHEMA = {
       { k: 'rpo', l: 'RPO alvo', t: 'text', table: 1, mono: 1 },
       { k: 'rto', l: 'RTO alvo', t: 'text', table: 1, mono: 1 },
       { k: 'responsavel', l: 'Responsável', t: 'text' },
+      { k: 'criado_por', l: 'Adicionado por', t: 'text', table: 1, ro: 1 },
     ] },
   restore: { title: 'Restore', sub: 'Registro das recuperações testadas', singular: 'teste',
     fields: [
@@ -166,6 +169,7 @@ const SCHEMA = {
       { k: 'resultado', l: 'Resultado', t: 'select', cat: 'backup_resultado', table: 1, pill: 1 },
       { k: 'por', l: 'Testado por', t: 'text', table: 1 },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1, trunc: 1, table: 1 },
+      { k: 'criado_por', l: 'Adicionado por', t: 'text', table: 1, ro: 1 },
     ] },
   dicionario: { title: 'Dicionário de dados', sub: 'Significado, origem e classificação de cada coluna', singular: 'campo',
     fields: [
@@ -180,6 +184,7 @@ const SCHEMA = {
       { k: 'classificacao', l: 'Classificação', t: 'select', o: OPT.classif, table: 1, pill: 1 },
       { k: 'origem', l: 'Origem / sistema', t: 'text' },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1, trunc: 1, table: 1 },
+      { k: 'criado_por', l: 'Adicionado por', t: 'text', table: 1, ro: 1 },
     ] },
   integracoes: { title: 'Integrações de sistemas', sub: 'Conexões, fluxos de dados e dependências entre sistemas', singular: 'integração',
     fields: [
@@ -201,6 +206,7 @@ const SCHEMA = {
       { k: 'status', l: 'Status', t: 'select', cat: 'integracao_status', table: 1, pill: 1 },
       { k: 'ultima_revisao', l: 'Última revisão', t: 'date', table: 1, mono: 1 },
       { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+      { k: 'criado_por', l: 'Adicionado por', t: 'text', table: 1, ro: 1 },
     ] },
 };
 
@@ -1443,6 +1449,8 @@ function buildForm(key, data) {
         `<div class="tagselect-dropdown"></div>` +
         '</div>';
       h += `<input type="hidden" data-k="${f.k}" value="${esc(selecionados.join(', '))}">`;
+    } else if (f.ro) {
+      h += `<input type="text" class="input" data-k="${f.k}" data-ro="1" value="${v}" readonly style="opacity:.6;cursor:default">`;
     } else {
       h += `<input type="${f.t}" data-k="${f.k}" value="${v}">`;
     }
@@ -1614,7 +1622,10 @@ async function saveModal() {
     if (first) syncObjetos(first);
   });
   const rec = {};
-  $('modalBody').querySelectorAll('[data-k]').forEach((el) => { rec[el.dataset.k] = el.value.trim() === '' ? null : el.value.trim(); });
+  $('modalBody').querySelectorAll('[data-k]').forEach((el) => {
+    if (el.dataset.ro) return; // campo somente-leitura — não envia ao servidor
+    rec[el.dataset.k] = el.value.trim() === '' ? null : el.value.trim();
+  });
   // Campo objetos: converter JSON string → array para a API
   if (typeof rec.objetos === 'string') {
     try { rec.objetos = JSON.parse(rec.objetos || '[]'); } catch (e) { rec.objetos = []; }
