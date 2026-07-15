@@ -1,22 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Exemplo de web.config para IIS (Windows Server). Copie para a raiz do
-  site no IIS (a pasta que contem index.php, backend/, conf/, css/, js/,
-  img/ juntos) e ajuste os pontos marcados com "AJUSTE AQUI".
+  projeto no servidor (a pasta que contem index.php, backend/, conf/, css/,
+  js/, img/ juntos) e ajuste os pontos marcados com "AJUSTE AQUI".
 
-  Projeto sem dependencias (sem Composer/vendor): um unico site, com um
-  unico index.php decidindo tudo (API ou pagina). Pre-requisitos no
-  servidor: PHP (versao Non Thread Safe) mais modulo FastCGI do IIS mais
-  modulo URL Rewrite da Microsoft.
+  Projeto sem dependencias (sem Composer/vendor): um unico index.php decide
+  tudo (API ou pagina do portal). Pre-requisitos no servidor:
+    - PHP para Windows (versao Non Thread Safe + WinCache ou opcache)
+    - Modulo FastCGI do IIS (instalado via "Adicionar funcoes e recursos")
+    - Modulo URL Rewrite da Microsoft (download gratuito em iis.net/downloads)
+
+  Dois cenarios de instalacao no IIS:
+
+    A) Portal na raiz de um site
+       -> https://portal.minhaempresa.com.br/
+       Aponte o "Physical path" do site para a pasta do projeto.
+       SCRIPT_NAME sera /index.php -- o portal detecta que esta na raiz.
+
+    B) Portal como "Application" em subdiretorio
+       -> https://intranet.empresa.com.br/gestao/
+       No IIS Manager: clique com o botao direito na pasta "gestao" dentro
+       do site e escolha "Convert to Application". Aponte o "Physical path"
+       para a pasta do projeto. Copie este web.config para essa pasta.
+       O IIS seta SCRIPT_NAME=/gestao/index.php e o portal detecta o
+       prefixo /gestao automaticamente.
+
+       NAO use apenas "Virtual Directory" (sem "Convert to Application"):
+       nesse modo o SCRIPT_NAME nao inclui o prefixo /gestao e o portal
+       nao consegue detectar o subdiretorio corretamente.
+
+  Nota sobre SCRIPT_NAME:
+    O portal detecta o prefixo automaticamente via SCRIPT_NAME (caminho URL
+    do script, definido pelo IIS/FastCGI). Nao e necessario nenhum ajuste
+    manual no codigo PHP para mudar o subdiretorio de instalacao.
 -->
 <configuration>
   <system.webServer>
-    <!-- AJUSTE AQUI: caminho do php-cgi.exe instalado no servidor (confira
-         a versao com "php -v"). Geralmente isto e configurado uma unica
-         vez no IIS Manager (Handler Mappings) em vez de aqui; o bloco
-         abaixo e so referencia caso precise registrar na mao. -->
+
+    <!-- AJUSTE AQUI: caminho do php-cgi.exe instalado no servidor.
+         Normalmente configurado uma vez so no IIS Manager em
+         "Handler Mappings" > "Add Module Mapping" (mais simples e
+         recomendado); o bloco abaixo e alternativa para registrar via
+         web.config. Ajuste scriptProcessor para o caminho real do
+         php-cgi.exe -- ex.: C:\PHP\php-cgi.exe -->
     <handlers>
-      <add name="PHP_via_FastCGI" path="*.php" verb="*"
+      <add name="PHP_via_FastCGI"
+           path="*.php"
+           verb="*"
            modules="FastCgiModule"
            scriptProcessor="C:\Program Files\PHP\php-cgi.exe"
            resourceType="Either" />
@@ -24,7 +54,7 @@
 
     <rewrite>
       <rules>
-        <!-- Arquivo ou pasta real (css/js/img/index.php), serve direto. -->
+        <!-- Arquivos reais (css/js/img/index.php): serve direto, sem rewrite. -->
         <rule name="Arquivo estatico real" stopProcessing="true">
           <match url="^(.*)$" />
           <conditions logicalGrouping="MatchAll">
@@ -33,8 +63,7 @@
           <action type="None" />
         </rule>
 
-        <!-- Qualquer outra coisa (rotas do SPA e /api/...) cai no
-             index.php unico da raiz, que decide o resto. -->
+        <!-- Tudo mais (rotas do SPA e /api/...) cai no index.php. -->
         <rule name="Front controller" stopProcessing="true">
           <match url="^index\.php$" negate="true" />
           <action type="Rewrite" url="index.php" />
@@ -43,10 +72,9 @@
     </rewrite>
 
     <!-- Bloqueia acesso via URL a pastas internas, mesmo que existam de
-         verdade no disco; so o index.php deve enxerga-las (logica da API
-         em backend/, credenciais do banco em conf/, arquivo .db do
-         SQLite em db/ -- sem bloquear, o banco inteiro fica baixavel
-         direto pela URL). -->
+         verdade no disco. backend/ tem a logica da API; conf/ tem as
+         credenciais do banco e a chave secreta; db/ tem o arquivo SQLite
+         (sem bloquear, o banco inteiro fica baixavel pela URL). -->
     <security>
       <requestFiltering>
         <hiddenSegments>
@@ -56,22 +84,31 @@
           <add segment="db" />
           <add segment=".git" />
         </hiddenSegments>
+        <!-- Bloqueia arquivos sensiveis na raiz pelo nome. -->
+        <denyUrlSequences>
+          <add sequence="README.md" />
+          <add sequence="DEPLOY.md" />
+        </denyUrlSequences>
       </requestFiltering>
     </security>
 
-    <!-- Bloqueia listagem de diretorio -->
+    <!-- Desativa listagem de diretorio. -->
     <directoryBrowse enabled="false" />
 
     <!--
-      HSTS: so ative depois que o HTTPS estiver funcionando e validado.
-      Comece com max-age=86400 (1 dia); suba para 31536000 (1 ano) apos confirmar.
-      ATENCAO: uma vez gravado no navegador, problemas de certificado bloqueiam
-      o acesso ate o max-age expirar.
+      HSTS: so ative depois que o HTTPS estiver configurado e validado.
+      Comece com max-age=86400 (1 dia); suba para 31536000 (1 ano)
+      apos confirmar que o certificado esta estavel.
+      ATENCAO: uma vez gravado no navegador, qualquer problema de
+      certificado bloqueia o acesso ate o max-age expirar.
+
     <httpProtocol>
       <customHeaders>
-        <add name="Strict-Transport-Security" value="max-age=86400; includeSubDomains" />
+        <add name="Strict-Transport-Security"
+             value="max-age=86400; includeSubDomains" />
       </customHeaders>
     </httpProtocol>
     -->
+
   </system.webServer>
 </configuration>

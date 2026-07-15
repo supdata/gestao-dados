@@ -12,11 +12,30 @@
 # pro index.php. Para o .htaccess funcionar, AllowOverride precisa estar
 # em "All" (ja configurado abaixo).
 #
+# Este arquivo cobre dois cenarios:
+#
+#   A) Portal na raiz do dominio  -> https://portal.minhaempresa.com.br/
+#      Use o bloco VirtualHost abaixo sem modificacao de prefixo.
+#
+#   B) Portal em subdiretorio     -> https://intranet.empresa.com.br/gestao/
+#      Use o bloco com Alias (veja comentario no final deste arquivo).
+#
+# Nota sobre SCRIPT_NAME:
+#   O Apache repassa o SCRIPT_NAME correto ao PHP em qualquer configuracao
+#   (Alias, mod_php, mod_fcgid, mod_proxy_fcgi). O portal detecta o prefixo
+#   automaticamente a partir do SCRIPT_NAME -- nao ha ajuste manual
+#   necessario no PHP.
+#
 # Pressupoe mod_php (Apache executando o PHP direto). Se o servidor usa
-# PHP-FPM via mod_proxy_fcgi, ajuste o <Directory> com a diretiva
-# SetHandler/ProxyFCGI correspondente -- a documentacao do seu PHP-FPM tem
-# o trecho certo para colar aqui.
+# PHP-FPM via mod_proxy_fcgi, adicione a diretiva SetHandler dentro do
+# bloco <Directory>:
+#   <FilesMatch \.php$>
+#       SetHandler "proxy:unix:/run/php/php8.1-fpm.sock|fcgi://localhost/"
+#   </FilesMatch>
 
+# -----------------------------------------------------------------------------
+# CENARIO A -- portal na raiz do dominio
+# -----------------------------------------------------------------------------
 <VirtualHost *:80>
     # AJUSTE AQUI: dominio real do portal.
     ServerName portal.minhaempresa.com.br
@@ -31,12 +50,8 @@
         Require all granted
     </Directory>
 
-    # backend/, conf/ e db/ nao devem ser acessados direto pela web -- so
-    # por dentro do index.php da raiz (via require interno do PHP). O
-    # .htaccess da raiz ja bloqueia isso; este bloco e so reforco no nivel
-    # do vhost, que nao depende do AllowOverride. db/ guarda o arquivo .db
-    # do SQLite -- sem bloquear, alguem poderia baixar o banco inteiro so
-    # acessando a URL.
+    # Bloqueia acesso direto as pastas internas via vhost (reforco alem
+    # do .htaccess; nao depende de AllowOverride).
     <Directory /var/www/meu-portal/backend>
         Require all denied
     </Directory>
@@ -46,16 +61,55 @@
     <Directory /var/www/meu-portal/db>
         Require all denied
     </Directory>
+    <Directory /var/www/meu-portal/deploy>
+        Require all denied
+    </Directory>
 
     # HSTS (so ative depois que o HTTPS estiver funcionando e validado).
     # Requer mod_headers. Comece com max-age curto (86400 = 1 dia) e suba
     # para 31536000 (1 ano) apos validar o certificado.
     # Header always set Strict-Transport-Security "max-age=86400; includeSubDomains"
 
-    ErrorLog ${APACHE_LOG_DIR}/meu-portal-error.log
+    ErrorLog  ${APACHE_LOG_DIR}/meu-portal-error.log
     CustomLog ${APACHE_LOG_DIR}/meu-portal-access.log combined
 </VirtualHost>
 
+# -----------------------------------------------------------------------------
+# CENARIO B -- portal em subdiretorio (/gestao) dentro de um VirtualHost
+#              que ja serve outros conteudos.
+# -----------------------------------------------------------------------------
+# Descomente e ajuste este bloco se o portal precisar ficar em
+# https://intranet.empresa.com.br/gestao/ em vez da raiz do dominio.
+# O Apache repassa SCRIPT_NAME=/gestao/index.php corretamente via Alias,
+# e o portal detecta o prefixo /gestao automaticamente.
+#
+# <VirtualHost *:80>
+#     ServerName intranet.empresa.com.br
+#
+#     # AJUSTE AQUI: mapeia /gestao/ -> pasta real do projeto no servidor.
+#     Alias /gestao /var/www/meu-portal
+#
+#     <Directory /var/www/meu-portal>
+#         Options -Indexes +FollowSymLinks
+#         AllowOverride All
+#         Require all granted
+#     </Directory>
+#
+#     # Bloqueia pastas internas.
+#     <Directory /var/www/meu-portal/backend>
+#         Require all denied
+#     </Directory>
+#     <Directory /var/www/meu-portal/conf>
+#         Require all denied
+#     </Directory>
+#     <Directory /var/www/meu-portal/db>
+#         Require all denied
+#     </Directory>
+#
+#     ErrorLog  ${APACHE_LOG_DIR}/meu-portal-error.log
+#     CustomLog ${APACHE_LOG_DIR}/meu-portal-access.log combined
+# </VirtualHost>
+
 # Para HTTPS, depois que o dominio estiver apontando pro servidor, rode
-# "sudo certbot --apache -d portal.minhaempresa.com.br" (Let's
-# Encrypt). O certbot cria o bloco <VirtualHost *:443> sozinho.
+# "sudo certbot --apache -d portal.minhaempresa.com.br" (Let's Encrypt).
+# O certbot cria o bloco <VirtualHost *:443> sozinho.

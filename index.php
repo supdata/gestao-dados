@@ -30,12 +30,14 @@ declare(strict_types=1);
  */
 function caminhoBaseApp(): string
 {
-    $raizApp = str_replace('\\', '/', __DIR__);
-    $raizDocumento = str_replace('\\', '/', rtrim((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''), '/\\'));
-    if ($raizDocumento === '' || !str_starts_with($raizApp, $raizDocumento)) {
-        return '';
-    }
-    return rtrim(substr($raizApp, strlen($raizDocumento)), '/');
+    // Usa SCRIPT_NAME (caminho URL do script, ex: /gestao/index.php) em vez de
+    // comparar __DIR__ com DOCUMENT_ROOT. Em servidores FreeBSD e outros com
+    // symlinks, PHP resolve __DIR__ para o caminho real (ex: /usr/local/www/nginx-dist/gestao)
+    // mas Nginx passa DOCUMENT_ROOT sem resolver o symlink (/usr/local/www/nginx),
+    // causando calculo errado do basePath e loop de redirect.
+    $scriptName = rtrim(str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+    $dir = rtrim(str_replace('\\', '/', dirname($scriptName)), '/');
+    return ($dir === '' || $dir === '.') ? '' : $dir;
 }
 
 /**

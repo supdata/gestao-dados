@@ -2,7 +2,9 @@
 
 Guia para subir o Portal de Gestão de Dados num servidor real (VPS, servidor on-premise, etc.), direto no sistema operacional, sem container. Recomendação principal: **Linux + Nginx + PHP-FPM**. No fim do documento tem o que muda se você usar Apache ou IIS (Windows Server) em vez de Nginx.
 
-**Arquitetura de entrada única, sem dependências:** um `index.php` na raiz do projeto resolve tudo — assistente de instalação (`/setup`), API (`/api/...`), arquivos estáticos (`css/`, `js/`, `img/`) e a página do portal, na mesma porta/domínio. É o mesmo arquivo que você usa em desenvolvimento local (`php -S`), só que em produção quem o aciona é o servidor web. O document root do site é sempre a **raiz do projeto** (a pasta que contém `index.php`, `setup/`, `backend/`, `conf/`, `css/`, `js/` e `img/` lado a lado). Não há `vendor/` nem `composer.json` — o backend não usa nenhuma biblioteca externa, então não há passo de "instalar dependências" neste guia.
+**Arquitetura de entrada única, sem dependências:** um `index.php` na raiz do projeto resolve tudo — assistente de instalação (`/setup`), API (`/api/...`), arquivos estáticos (`css/`, `js/`, `img/`) e a página do portal, na mesma porta/domínio. É o mesmo arquivo que você usa em desenvolvimento local (`php -S`), só que em produção quem o aciona é o servidor web. Não há `vendor/` nem `composer.json` — o backend não usa nenhuma biblioteca externa, então não há passo de "instalar dependências" neste guia.
+
+**Raiz do domínio ou subdiretório — detectado automaticamente:** o portal funciona tanto em `https://portal.empresa.com.br/` quanto em `https://intranet.empresa.com.br/gestao/`, sem nenhuma configuração extra. O prefixo de URL (`/gestao`, `/meu-app`, etc.) é detectado automaticamente via `SCRIPT_NAME`, que o servidor web repassa ao PHP. Os exemplos em `deploy/` cobrem os dois cenários para Nginx, Apache e IIS.
 
 **Importante sobre o `/setup`:** o projeto é distribuído sem título fixo e sem usuário administrador padrão — quem instala define os dois pelo assistente em `/setup` (motor de banco, conexão, título do projeto e login/senha do admin). Depois de instalar com sucesso, a pasta `setup/` é removida automaticamente; se isso falhar no seu ambiente, o próprio assistente avisa na tela final pra você remover manualmente.
 
@@ -173,6 +175,68 @@ O bloqueio de força bruta no login (`backend/auth.php`) usa o par **usuário + 
 - **Apache:** módulo `mod_remoteip` com `RemoteIPHeader X-Forwarded-For`
 
 > **Atenção:** confiar em `X-Forwarded-For` sem definir quais proxies são confiáveis é falsificável — qualquer cliente pode enviar esse header com o valor que quiser. Sempre restrinja com `set_real_ip_from` / `RemoteIPTrustedProxy` ao IP real do seu proxy.
+
+## Deploy em subdiretório (Nginx, Apache ou IIS)
+
+Use quando o servidor já hospeda outros sites/apps e o portal precisa ficar em `/gestao` (ou qualquer outro prefixo) em vez da raiz do domínio.
+
+O portal detecta o prefixo via `SCRIPT_NAME` (caminho URL do script, repassado pelo servidor web). **Não é necessário editar nenhum arquivo PHP** — é automático em qualquer servidor configurado seguindo os exemplos abaixo.
+
+**Nginx** (`deploy/nginx.conf.example`, cenário B — copie e descomente o bloco comentado):
+
+```nginx
+# Pasta PAI do projeto como root (ex.: /usr/local/www/nginx se os arquivos
+# ficam em /usr/local/www/nginx/gestao/).
+root /usr/local/www/nginx;
+
+location /gestao {
+    try_files $uri $uri/ /gestao/index.php$is_args$args;
+}
+
+location ~ \.php$ {
+    include       fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    fastcgi_pass  127.0.0.1:9000;   # ajuste para o seu PHP-FPM
+}
+```
+
+**Apache** (`deploy/apache-vhost.conf.example`, cenário B): use `Alias /gestao /var/www/meu-portal` dentro do `<VirtualHost>` e mantenha `AllowOverride All` no `<Directory>`.
+
+**IIS** (`deploy/iis-web.config.example`, cenário B): crie o site normalmente, clique com o botão direito na pasta e escolha **"Convert to Application"** — isso faz o IIS repassar `SCRIPT_NAME=/gestao/index.php` corretamente. Copie o `web.config` para a pasta do projeto.
+
+### FreeBSD e servidores com symlinks no webroot
+
+No FreeBSD o diretório web padrão do Nginx é `/usr/local/www/nginx`, que em muitas instalações é um symlink para `/usr/local/www/nginx-dist`. O PHP resolve symlinks ao calcular `__FILE__`/`__DIR__`, mas o Nginx não resolve `$document_root` — isso causaria um loop de redirect se o portal usasse `DOCUMENT_ROOT` para detectar o prefixo. A versão atual usa `SCRIPT_NAME`, que é definido pelo Nginx como o caminho URL (sem symlink), então **o deploy no FreeBSD funciona igual ao Linux** sem nenhum ajuste extra:
+
+```nginx
+# /usr/local/etc/nginx/nginx.conf (FreeBSD) — deploy em /gestao
+server {
+    listen 80;
+    server_name _;
+
+    root  /usr/local/www/nginx;   # pode ser symlink; OK com SCRIPT_NAME
+    index index.php;
+
+    location /gestao {
+        try_files $uri $uri/ /gestao/index.php$is_args$args;
+    }
+
+    location ~ \.php$ {
+        include       fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_pass  127.0.0.1:9000;
+    }
+
+    # Protege pastas internas
+    location ^~ /gestao/conf/    { deny all; }
+    location ^~ /gestao/backend/ { deny all; }
+    location ^~ /gestao/db/      { deny all; }
+}
+```
+
+Após editar, recarregue: `service nginx reload`.
+
+---
 
 ## Usando Apache em vez de Nginx
 

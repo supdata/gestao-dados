@@ -33,12 +33,12 @@ require_once __DIR__ . '/../backend/auth.php';
 if (!function_exists('caminhoBaseApp')) {
 function caminhoBaseApp(): string
 {
-    $raizApp = str_replace('\\', '/', dirname(__DIR__));
-    $raizDocumento = str_replace('\\', '/', rtrim((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''), '/\\'));
-    if ($raizDocumento === '' || !str_starts_with($raizApp, $raizDocumento)) {
-        return '';
-    }
-    return rtrim(substr($raizApp, strlen($raizDocumento)), '/');
+    // Mesma logica do index.php: usa SCRIPT_NAME para evitar problema de symlinks
+    // em servidores FreeBSD. Em setup/index.php, SCRIPT_NAME e ex: /gestao/setup/index.php,
+    // entao precisa de 2x dirname() para chegar ao basePath do portal (/gestao).
+    $scriptName = rtrim(str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+    $dir = rtrim(str_replace('\\', '/', dirname(dirname($scriptName))), '/');
+    return ($dir === '' || $dir === '.') ? '' : $dir;
 }
 }
 
@@ -103,6 +103,7 @@ $portaPadrao = ['mysql' => '3306', 'pgsql' => '5432', 'sqlsrv' => '1433'];
 // ---------------------------------------------------------------------------
 $lang = (($_GET['lang'] ?? '') === 'en') ? 'en' : 'pt';
 
+/** @var array<string, array<string, string>> $t */
 $t = [
     'pt' => [
         // pagina "ja instalado"
@@ -239,7 +240,6 @@ $t = [
     ],
 ];
 
-/** @var array<string,string> $T */
 $T = $t[$lang];
 
 // ---------------------------------------------------------------------------
@@ -296,6 +296,8 @@ function detectarOrigemAtual(): string
 /**
  * Confere se o valor informado e um par esquema+host valido (sem caminho,
  * sem barra final). Devolve null se valido ou a mensagem de erro traduzida.
+ *
+ * @param array<string, string> $T
  */
 function validarOrigemCors(string $origem, array $T): ?string
 {
@@ -311,7 +313,7 @@ function validarOrigemCors(string $origem, array $T): ?string
  * sao universais independente do idioma escolhido).
  */
 if (!function_exists('verificarExtensaoPdo')) {
-function verificarExtensaoPdo(string $driver, array $T = []): ?string
+function verificarExtensaoPdo(string $driver): ?string
 {
     $extensoes = [
         'mysql'  => 'pdo_mysql',
@@ -340,6 +342,10 @@ function verificarExtensaoPdo(string $driver, array $T = []): ?string
 }
 }
 
+/**
+ * @param  array<string, mixed>                   $d
+ * @return array{string, string|null, string|null}
+ */
 function dsnParaTeste(array $d): array
 {
     $driver = (string) ($d['db_driver'] ?? 'mysql');
@@ -360,10 +366,14 @@ function dsnParaTeste(array $d): array
     }
 }
 
+/**
+ * @param array<string, mixed>  $d
+ * @param array<string, string> $T
+ */
 function testarConexaoDireta(array $d, array $T): void
 {
     $driver = (string) ($d['db_driver'] ?? 'mysql');
-    $avisoExtensao = verificarExtensaoPdo($driver, $T);
+    $avisoExtensao = verificarExtensaoPdo($driver);
     if ($avisoExtensao !== null) {
         throw new RuntimeException($avisoExtensao);
     }
@@ -380,6 +390,7 @@ function testarConexaoDireta(array $d, array $T): void
  * Remove o conteudo da pasta setup/ e, por fim (depois da resposta ja ter
  * sido enviada ao navegador), a propria pasta.
  */
+/** @param array<string, string> $T */
 function apagarPastaSetup(string $pasta, array $T): ?string
 {
     try {

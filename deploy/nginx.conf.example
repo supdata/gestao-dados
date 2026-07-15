@@ -8,7 +8,31 @@
 #   index.php, css/, js/, img/, backend/, conf/ -- todos soltos na raiz.
 # O Nginx serve os arquivos estaticos reais direto (mais rapido) e manda
 # qualquer outra coisa (rotas do SPA e /api/...) pro index.php via PHP-FPM.
+#
+# Este arquivo cobre dois cenarios -- escolha o que se aplica:
+#
+#   A) Portal na raiz do dominio  -> https://portal.minhaempresa.com.br/
+#      Copie e use o bloco "CENARIO A" abaixo.
+#
+#   B) Portal em subdiretorio     -> https://intranet.empresa.com.br/gestao/
+#      Copie e use o bloco "CENARIO B" abaixo.
+#      (Caso tipico: FreeBSD, servidores compartilhados, mais de um site
+#      no mesmo Nginx com cada um em /nome-do-app.)
+#
+# Nota sobre symlinks (FreeBSD e similares):
+#   Em algumas distros o diretorio web-root e um symlink:
+#     /usr/local/www/nginx -> /usr/local/www/nginx-dist
+#   Nesse caso use o caminho real (nginx-dist) em "root" ou em
+#   "fastcgi_param DOCUMENT_ROOT" -- o PHP resolve symlinks em __FILE__
+#   mas o Nginx nao resolve em $document_root, causando calculo errado
+#   do prefixo do portal. Com o "root" apontando pro caminho real (ou
+#   para o symlink, tanto faz), o "SCRIPT_NAME" que o Nginx passa ao
+#   PHP-FPM ja contem o caminho URL correto e o portal detecta o prefixo
+#   automaticamente.
 
+# =============================================================================
+# CENARIO A -- portal na raiz do dominio (https://portal.minhaempresa.com.br/)
+# =============================================================================
 server {
     listen 80;
     listen [::]:80;
@@ -21,57 +45,99 @@ server {
     root /var/www/meu-portal;
     index index.php;
 
-    # Bloqueia acesso direto as pastas internas -- so o index.php deve
-    # enxergar o que tem dentro de backend/, conf/ (logica da API e
-    # credenciais do banco) e db/ (arquivo .db do SQLite -- sem isso,
-    # alguem poderia baixar o banco inteiro so acessando a URL).
-    #
-    # O bloco ^~ abaixo tem prioridade maxima no Nginx (prefixo literal,
-    # nao regex) e garante que conf/ nunca seja servido mesmo que um
-    # bloco de location posterior seja adicionado por engano.
-    location ^~ /conf/ {
-        deny all;
-    }
-    location ~ ^/(backend|conf|deploy|db)(/|$) {
-        deny all;
-    }
-    location ~ /\.git {
-        deny all;
-    }
-    location ~ ^/(README\.md|DEPLOY\.md)$ {
-        deny all;
-    }
+    # Bloqueia acesso direto as pastas internas.
+    location ^~ /conf/   { deny all; }
+    location ^~ /backend/ { deny all; }
+    location ^~ /db/     { deny all; }
+    location ^~ /deploy/ { deny all; }
+    location ~ /\.git    { deny all; }
+    location ~ ^/(README|DEPLOY)\.md$ { deny all; }
 
-    # Arquivo real (css/js/img/index.html) -- serve direto. Qualquer outra
-    # coisa (rotas do SPA e /api/...) cai no index.php unico.
+    # Arquivo real (css/js/img) serve direto; tudo mais cai no index.php.
     location / {
-        try_files $uri $uri/ /index.php;
+        try_files $uri $uri/ /index.php$is_args$args;
     }
 
     location ~ \.php$ {
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root/index.php;
-        fastcgi_param SCRIPT_NAME /index.php;
+        include        fastcgi_params;
+        # SCRIPT_FILENAME aponta sempre pro index.php da raiz (front controller).
+        # SCRIPT_NAME e inferido pelo fastcgi_params como $fastcgi_script_name,
+        # que apos o try_files acima vai ser /index.php -- certo para
+        # instalacao na raiz do dominio.
+        fastcgi_param  SCRIPT_FILENAME  $document_root/index.php;
+        fastcgi_param  SCRIPT_NAME      /index.php;
 
-        # AJUSTE AQUI: socket do PHP-FPM (confira a versao instalada com
-        # "php -v" no servidor -- ex.: php8.1-fpm.sock, php8.2-fpm.sock).
-        fastcgi_pass unix:/run/php/php8.1-fpm.sock;
+        # AJUSTE AQUI: socket do PHP-FPM (confira a versao com "php -v").
+        # Linux (Ubuntu/Debian): unix:/run/php/php8.1-fpm.sock
+        # FreeBSD:               127.0.0.1:9000
+        fastcgi_pass   unix:/run/php/php8.1-fpm.sock;
     }
 
     # HSTS (so ative depois que o HTTPS estiver funcionando e validado).
-    # Comece com max-age=86400 (1 dia) para testar; suba para 31536000 (1 ano)
-    # quando tiver certeza. ATENCAO: uma vez que o navegador "grava" o HSTS,
-    # qualquer problema de certificado bloqueia o acesso ate o max-age expirar.
+    # Comece com max-age=86400 (1 dia); suba para 31536000 (1 ano) apos confirmar.
     # add_header Strict-Transport-Security "max-age=86400; includeSubDomains" always;
 
     client_max_body_size 10m;
-
     access_log /var/log/nginx/meu-portal.access.log;
     error_log  /var/log/nginx/meu-portal.error.log;
 }
 
-# Para HTTPS, depois que o dominio estiver apontando pro servidor, rode
-# "sudo certbot --nginx -d portal.minhaempresa.com.br" (Let's Encrypt).
-# O certbot edita este arquivo automaticamente para adicionar o bloco de
-# "listen 443 ssl" e redirecionar HTTP -> HTTPS. Nao precisa escrever isso
-# na mao.
+
+# =============================================================================
+# CENARIO B -- portal em subdiretorio (https://intranet.empresa.com.br/gestao/)
+# =============================================================================
+# Use quando o Nginx ja serve outros sites/apps na mesma porta/dominio e o
+# portal precisa ficar em /gestao (ou outro prefixo que voce escolher).
+#
+# Exemplo: arquivos em /usr/local/www/nginx/gestao/ e acesso via /gestao/.
+# No FreeBSD o caminho mais comum e esse; se /usr/local/www/nginx for um
+# symlink para /usr/local/www/nginx-dist, pode usar qualquer um dos dois
+# em "root" -- o portal detecta o prefixo via SCRIPT_NAME, que o Nginx
+# define como o caminho URL (ex: /gestao/index.php), sem depender do
+# caminho de filesystem.
+
+# server {
+#     listen 80;
+#     listen [::]:80;
+#
+#     # AJUSTE AQUI
+#     server_name intranet.empresa.com.br;
+#
+#     # AJUSTE AQUI: pasta PAI do projeto (nao a pasta do projeto em si).
+#     # Ex.: se os arquivos estao em /usr/local/www/nginx/gestao/,
+#     #      o root e /usr/local/www/nginx (sem o /gestao no final).
+#     root /usr/local/www/nginx;
+#     index index.php;
+#
+#     # Bloqueia pastas internas -- usa o prefixo do subdiretorio.
+#     location ^~ /gestao/conf/    { deny all; }
+#     location ^~ /gestao/backend/ { deny all; }
+#     location ^~ /gestao/db/      { deny all; }
+#     location ^~ /gestao/deploy/  { deny all; }
+#     location ~ /\.git            { deny all; }
+#
+#     # Tudo dentro de /gestao/ que nao for arquivo real vai pro index.php.
+#     # O try_files reescreve internamente para /gestao/index.php, e o Nginx
+#     # passa SCRIPT_NAME=/gestao/index.php ao PHP-FPM -- o portal usa isso
+#     # para detectar automaticamente que o prefixo e /gestao.
+#     location /gestao {
+#         try_files $uri $uri/ /gestao/index.php$is_args$args;
+#     }
+#
+#     # Handler PHP global: SCRIPT_FILENAME + SCRIPT_NAME vindos do Nginx,
+#     # sem hardcode. Funciona igual para raiz e subdiretorio.
+#     location ~ \.php$ {
+#         include       fastcgi_params;
+#         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+#         # AJUSTE AQUI: socket/porta do PHP-FPM.
+#         fastcgi_pass  127.0.0.1:9000;
+#     }
+#
+#     # Se houver outros apps no mesmo servidor, adicione mais
+#     # blocos "location /outro-app { ... }" aqui.
+#
+#     # add_header Strict-Transport-Security "max-age=86400; includeSubDomains" always;
+#     client_max_body_size 10m;
+#     access_log /var/log/nginx/meu-portal.access.log;
+#     error_log  /var/log/nginx/meu-portal.error.log;
+# }
