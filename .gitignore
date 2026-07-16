@@ -9,3 +9,6 @@ conf/*.db
 # Uploads temporarios e caches
 *.log
 *.tmp
+
+# Claude
+CLAUDE.md
