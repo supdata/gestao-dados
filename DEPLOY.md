@@ -64,6 +64,7 @@ Depois de instalado, se quiser revisar ou ajustar algo manualmente (trocar `cors
 
 - `cors_allowed_origin`: troque o `*` pelo domínio real do portal (ex.: `https://portal.minhaempresa.com.br`). Isso impede que outros sites façam requisições à sua API usando o token de um usuário logado.
 - `app_debug`: deve ficar `false` (é o padrão gerado pelo assistente). Com `true`, erros vazam detalhes internos pra quem está usando o navegador — só use `true` durante depuração, nunca num servidor exposto.
+- `trusted_proxies`: **só importa se o portal ficar atrás de um proxy reverso** (Nginx como proxy, IIS ARR, load balancer, Cloudflare etc.). Liste os IPs/CIDRs dos seus proxies (ex.: `'trusted_proxies' => ['10.0.0.5', '192.168.0.0/24']`). Sem isso, o portal vê o IP do proxy como o IP de **todos** os usuários, e o limite de tentativas de login por IP pode bloquear o login de todo mundo de uma vez (além de a auditoria registrar o IP do proxy no lugar do real). **Liste apenas os IPs dos seus proxies** — nunca faixas públicas amplas. Sem proxy reverso, deixe vazio (`[]`).
 
 > **Automação/CI-CD:** se seu processo de deploy não permite passar por um formulário no navegador, dá pra pular o `/setup` e gerar `conf/config.php` programaticamente a partir de `conf/config.example.php` (mesmo formato de array PHP) — nesse caso é você quem garante uma `secret_key` aleatória forte e cria o primeiro usuário administrador direto no banco, com senha já em bcrypt (`password_hash()`).
 

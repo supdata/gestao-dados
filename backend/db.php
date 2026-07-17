@@ -60,6 +60,39 @@ function dbDriver(): string
 }
 
 /**
+ * IP do cliente, considerando proxy reverso. So honra X-Forwarded-For quando
+ * REMOTE_ADDR for um proxy confiavel listado em conf/config.php
+ * ['trusted_proxies'] (array de CIDRs/IPs), e pega o IP mais a DIREITA que
+ * nao seja proxy (resistente a spoofing de XFF). Sem proxy confiavel, devolve
+ * REMOTE_ADDR. Compartilhada pela trilha de auditoria (registrarAuditoria) e
+ * pelo throttle de login (clienteIp) -- por isso vive aqui, junto dos
+ * helpers, sem acoplar auth.php a auditoria.php.
+ */
+function enderecoIp(): string
+{
+    $remoteAddr = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    $proxiesConf = config()['trusted_proxies'] ?? [];
+    /** @var list<string> $proxies */
+    $proxies = is_array($proxiesConf) ? $proxiesConf : [];
+
+    if (count($proxies) > 0 && in_array($remoteAddr, $proxies, true)) {
+        $xff = trim((string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
+        if ($xff !== '') {
+            // Pega o IP mais a DIREITA que nao seja um proxy confiavel
+            // (partes[0] seria o valor forjavel pelo cliente).
+            $partes = array_reverse(array_map('trim', explode(',', $xff)));
+            foreach ($partes as $parte) {
+                if ($parte !== '' && !in_array($parte, $proxies, true)) {
+                    return $parte;
+                }
+            }
+        }
+    }
+
+    return $remoteAddr;
+}
+
+/**
  * Nome do projeto: prioriza o que o administrador configurou em
  * Administracao > Configuracoes do projeto (tabela config_projeto, gravada
  * em tempo de execucao); cai pro project_title de conf/config.php (definido

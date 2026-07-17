@@ -67,4 +67,15 @@ return [
     // cliente, e o detalhe completo vai pro log do PHP-FPM/servidor. So
     // mude pra true temporariamente, durante depuracao local.
     'app_debug' => false,
+
+    // Proxy reverso: se o portal ficar ATRAS de um proxy (Nginx como proxy,
+    // IIS ARR, load balancer, Cloudflare etc.), liste aqui os IPs/CIDRs desses
+    // proxies. So assim o portal passa a usar o X-Forwarded-For pra descobrir
+    // o IP real do cliente -- tanto na auditoria quanto no limite de login por
+    // IP. Sem isso, o IP visto e o do proxy para TODOS os usuarios, e o teto
+    // por IP pode acabar bloqueando o login de todos de uma vez. Liste APENAS
+    // os IPs dos seus proxies; nunca faixas publicas amplas (reabre spoofing
+    // de X-Forwarded-For). Sem proxy reverso, deixe vazio.
+    // Exemplo: 'trusted_proxies' => ['10.0.0.5', '192.168.0.0/24'],
+    'trusted_proxies' => [],
 ];

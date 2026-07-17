@@ -32,7 +32,7 @@ function verifyPassword(string $senha, string $hash): bool
  */
 function avaliarForcaSenha(string $senha): ?string
 {
-    if (strlen($senha) < 8) {
+    if (mb_strlen($senha) < 8) {
         return 'A senha precisa ter pelo menos 8 caracteres.';
     }
     if (!preg_match('/[A-Za-z]/', $senha) || !preg_match('/[0-9]/', $senha)) {
@@ -229,10 +229,21 @@ const LOGIN_JANELA_MINUTOS = 15;
  */
 const LOGIN_IP_MAX_TENTATIVAS = 20;
 
-/** IP de quem esta fazendo a requisicao (usado so pra throttle, nao e logado em lugar nenhum). */
+/**
+ * IP do cliente para o throttle de login. Reaproveita enderecoIp() (em
+ * backend/auditoria.php) -- a MESMA fonte usada pela trilha de auditoria,
+ * pra que throttle e auditoria enxerguem o mesmo cliente.
+ *
+ * Sem proxy reverso (ou com 'trusted_proxies' vazio em conf/config.php),
+ * enderecoIp() devolve REMOTE_ADDR -- comportamento identico ao anterior.
+ * Atras de proxy reverso e OBRIGATORIO configurar 'trusted_proxies' com os
+ * IPs/CIDRs do proxy: sem isso, REMOTE_ADDR e o IP do proxy para TODOS os
+ * clientes e o teto de tentativas por IP acabaria bloqueando o login de toda
+ * a organizacao (e a auditoria registraria o IP do proxy no lugar do real).
+ */
 function clienteIp(): string
 {
-    return (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+    return enderecoIp() ?: '0.0.0.0';
 }
 
 /**
@@ -423,10 +434,12 @@ const MFA_REENVIO_MAX          = 5;    // max reenvios por codigo
 /** Tentativas erradas de codigo (mesmo token) ate invalidar a tentativa de login. */
 const MFA_MAX_TENTATIVAS = 5;
 
-function mfaHashCodigo(string $codigo): string
+function mfaHashCodigo(string $token, string $codigo): string
 {
     $cfg = config();
-    return hash_hmac('sha256', $codigo, (string) $cfg['secret_key']);
+    // HMAC vinculado ao token: elimina qualquer pre-computacao de hash de
+    // codigo reaproveitavel entre tokens/usuarios (defesa em profundidade).
+    return hash_hmac('sha256', $token . '|' . $codigo, (string) $cfg['secret_key']);
 }
 
 /**
@@ -436,7 +449,7 @@ function mfaHashCodigo(string $codigo): string
  * quem chamou pra mandar o e-mail, nunca e gravado em texto puro.
  */
 /** @return array<string> */
-function mfaGerarCodigo(string $usuario): array
+function mfaGerarCodigo(string $usuario, int $reenvios = 0, ?string $ultimoReenvio = null): array
 {
     $pdo = db();
     $token = bin2hex(random_bytes(32));
@@ -447,12 +460,16 @@ function mfaGerarCodigo(string $usuario): array
     $pdo->prepare('DELETE FROM ' . quoteIdent(tableName('mfa_codigos')) . ' WHERE ' . quoteIdent('usuario') . ' = ?')
         ->execute([$usuario]);
 
+    // reenvios/ultimo_reenvio sao carregados para a linha nova: sem isso, o
+    // reenvio (que apaga e recria a linha) zeraria os contadores e anularia
+    // o cooldown e o teto de reenvios. O 1o envio (login) usa os defaults.
     $pdo->prepare(
         'INSERT INTO ' . quoteIdent(tableName('mfa_codigos')) . ' (' .
         quoteIdent('usuario') . ', ' . quoteIdent('token') . ', ' . quoteIdent('codigo_hash') . ', ' .
-        quoteIdent('tentativas') . ', ' . quoteIdent('expira_em') . ', ' . quoteIdent('criado_em') .
-        ') VALUES (?, ?, ?, 0, ?, ?)'
-    )->execute([$usuario, $token, mfaHashCodigo($codigo), $expiraEm, $agora]);
+        quoteIdent('tentativas') . ', ' . quoteIdent('reenvios') . ', ' . quoteIdent('ultimo_reenvio') . ', ' .
+        quoteIdent('expira_em') . ', ' . quoteIdent('criado_em') .
+        ') VALUES (?, ?, ?, 0, ?, ?, ?, ?)'
+    )->execute([$usuario, $token, mfaHashCodigo($token, $codigo), $reenvios, $ultimoReenvio, $expiraEm, $agora]);
 
     return [$token, $codigo];
 }
@@ -464,8 +481,10 @@ function mfaUsuarioPorToken(string $token): ?string
         return null;
     }
     $pdo = db();
-    $stmt = $pdo->prepare('SELECT ' . quoteIdent('usuario') . ' FROM ' . quoteIdent(tableName('mfa_codigos')) . ' WHERE ' . quoteIdent('token') . ' = ?');
-    $stmt->execute([$token]);
+    // Filtra por expira_em: um token ja expirado nao pode reviver a sessao de
+    // verificacao via /auth/mfa/reenviar (mfaConferirCodigo ja checa isso).
+    $stmt = $pdo->prepare('SELECT ' . quoteIdent('usuario') . ' FROM ' . quoteIdent(tableName('mfa_codigos')) . ' WHERE ' . quoteIdent('token') . ' = ? AND ' . quoteIdent('expira_em') . ' >= ?');
+    $stmt->execute([$token, date('Y-m-d H:i:s')]);
     $valor = $stmt->fetchColumn();
     return $valor !== false ? (string) $valor : null;
 }
@@ -559,7 +578,7 @@ function mfaConferirCodigo(string $token, string $codigo): ?string
         mfaApagarPorToken($token);
         return 'Numero maximo de tentativas excedido. Faca login novamente.';
     }
-    if (!hash_equals((string) $linha['codigo_hash'], mfaHashCodigo($codigo))) {
+    if (!hash_equals((string) $linha['codigo_hash'], mfaHashCodigo($token, $codigo))) {
         $pdo->prepare(
             'UPDATE ' . quoteIdent(tableName('mfa_codigos')) . ' SET ' . quoteIdent('tentativas') . ' = ' .
             quoteIdent('tentativas') . ' + 1 WHERE ' . quoteIdent('token') . ' = ?'

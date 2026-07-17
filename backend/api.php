@@ -768,7 +768,14 @@ function despachar(string $metodo, string $caminho): void
             responderErro(400, 'Nao foi possivel reenviar o codigo.');
         }
 
-        [$novoToken, $codigo] = mfaGerarCodigo($usuario);
+        // Le o contador ja incrementado por mfaChecarReenvio() e carrega-o
+        // para a linha nova (mfaGerarCodigo recria a linha). Sem isso o teto
+        // e o cooldown de reenvio seriam zerados a cada reenvio.
+        $stmtReenvios = $pdo->prepare('SELECT ' . quoteIdent('reenvios') . ' FROM ' . quoteIdent(tableName('mfa_codigos')) . ' WHERE ' . quoteIdent('token') . ' = ?');
+        $stmtReenvios->execute([$mfaTokenAntigo]);
+        $reenviosAtual = (int) $stmtReenvios->fetchColumn();
+
+        [$novoToken, $codigo] = mfaGerarCodigo($usuario, $reenviosAtual, date('Y-m-d H:i:s'));
         $cfgEmail = configEmail();
         try {
             if ($cfgEmail === null) {

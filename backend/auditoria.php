@@ -10,38 +10,9 @@ declare(strict_types=1);
  * trilha (ver GET /auditoria em backend/api.php).
  */
 
-/**
- * IP do cliente para trilha de auditoria.
- *
- * So honra X-Forwarded-For quando REMOTE_ADDR for um proxy confiavel
- * listado em conf/config.php ['trusted_proxies'] (array de CIDRs/IPs).
- * Sem isso, qualquer cliente pode forjar o IP gravado na auditoria.
- */
-function enderecoIp(): string
-{
-    $remoteAddr = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
-    $proxiesConf = config()['trusted_proxies'] ?? [];
-    /** @var list<string> $proxies */
-    $proxies = is_array($proxiesConf) ? $proxiesConf : [];
-
-    if (count($proxies) > 0 && in_array($remoteAddr, $proxies, true)) {
-        $xff = trim((string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
-        if ($xff !== '') {
-            // Pega o IP mais a DIREITA que nao seja um proxy confiavel.
-            // Pegar partes[0] (mais a esquerda) permite spoofing: o atacante
-            // envia "X-Forwarded-For: 9.9.9.9" e o proxy ANEXA o IP real,
-            // mas partes[0] fica com o valor forjado.
-            $partes = array_reverse(array_map('trim', explode(',', $xff)));
-            foreach ($partes as $parte) {
-                if ($parte !== '' && !in_array($parte, $proxies, true)) {
-                    return $parte;
-                }
-            }
-        }
-    }
-
-    return $remoteAddr;
-}
+// enderecoIp() foi movida para backend/db.php (junto dos helpers), para ser
+// compartilhada pela auditoria e pelo throttle de login (clienteIp) sem
+// acoplar auth.php a auditoria.php.
 
 /**
  * Grava uma linha na trilha de auditoria. $dadosAntes/$dadosDepois sao
