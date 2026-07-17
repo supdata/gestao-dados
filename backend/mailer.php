@@ -108,34 +108,22 @@ function emailCifrarSenha(string $senha): string
 }
 
 /**
- * Decifra blob gerado por emailCifrarSenha().
- * Suporte retroativo: blobs antigos (CBC, 28+ bytes sem tag GCM) continuam
- * funcionando via deteccao de tamanho -- remova apos todos serem re-salvos.
+ * Decifra blob gerado por emailCifrarSenha() -- AES-256-GCM autenticado.
+ * Formato: base64( nonce[12] || tag[16] || ciphertext ). Retorna '' se o blob
+ * for invalido ou a autenticacao (tag GCM) falhar. Sem fallback para modos
+ * nao autenticados (CBC): se existir uma config antiga em CBC, o admin precisa
+ * re-salvar a senha SMTP (o que re-cifra em GCM).
  */
 function emailDecifrarSenha(string $cifradoB64): string
 {
     $dados = base64_decode($cifradoB64, true);
-    if ($dados === false || strlen($dados) < 28) {
+    if ($dados === false || strlen($dados) < 29) {
         return '';
     }
-    // Blobs GCM: nonce(12) + tag(16) + ciphertext(>=1) = minimo 29 bytes.
-    // Blobs CBC legados: iv(16) + ciphertext(>=16) = minimo 32 bytes, mas
-    // distinguimos pelo tamanho >= 28 para cobrir ambos -- o GCM falha rapi-
-    // damente com tag invalida; o CBC retorna string ou false.
-    if (strlen($dados) >= 29) {
-        // Tenta GCM primeiro
-        $nonce   = substr($dados, 0, 12);
-        $tag     = substr($dados, 12, 16);
-        $cifrado = substr($dados, 28);
-        $resultado = openssl_decrypt($cifrado, 'aes-256-gcm', emailChaveCifra(), OPENSSL_RAW_DATA, $nonce, $tag);
-        if ($resultado !== false) {
-            return $resultado;
-        }
-    }
-    // Retrocompatibilidade: tenta CBC com chave antiga
-    $iv      = substr($dados, 0, 16);
-    $cifrado = substr($dados, 16);
-    $resultado = openssl_decrypt($cifrado, 'aes-256-cbc', emailChaveCifra(), OPENSSL_RAW_DATA, $iv);
+    $nonce   = substr($dados, 0, 12);
+    $tag     = substr($dados, 12, 16);
+    $cifrado = substr($dados, 28);
+    $resultado = openssl_decrypt($cifrado, 'aes-256-gcm', emailChaveCifra(), OPENSSL_RAW_DATA, $nonce, $tag);
     return $resultado === false ? '' : $resultado;
 }
 

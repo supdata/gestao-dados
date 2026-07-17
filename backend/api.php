@@ -560,6 +560,12 @@ function despachar(string $metodo, string $caminho): void
 {
     global $MODULOS, $CATEGORIAS_TIPOS, $COLUNA_LABELS, $MODULOS_TITULOS;
 
+    // Exponho metodo/caminho da requisicao para funcoes chamadas indiretamente
+    // (ex.: o gate de must_change_password dentro de exigirLogin) saberem qual
+    // rota esta sendo acessada.
+    $GLOBALS['REQ_METODO']  = $metodo;
+    $GLOBALS['REQ_CAMINHO'] = $caminho;
+
     if ($metodo === 'GET' && $caminho === '/') {
         responderJson(['ok' => true, 'titulo' => projectTitle()]);
     }
@@ -580,6 +586,13 @@ function despachar(string $metodo, string $caminho): void
         $minutosRestantes = checarBloqueioLogin($username, $ip);
         if ($minutosRestantes !== null) {
             responderErro(429, "Muitas tentativas de login. Tente novamente em {$minutosRestantes} minuto(s).");
+        }
+        // Segundo limite, por IP (independente do username): barra password
+        // spraying (uma senha testada contra muitos usernames do mesmo IP). O
+        // agregado por IP usa a linha com usuario = '' na tentativas_login.
+        $minutosRestantesIp = checarBloqueioLogin('', $ip);
+        if ($minutosRestantesIp !== null) {
+            responderErro(429, "Muitas tentativas de login a partir deste endereco. Tente novamente em {$minutosRestantesIp} minuto(s).");
         }
 
         $pdo = db();
@@ -608,7 +621,11 @@ function despachar(string $metodo, string $caminho): void
         $senhaCorreta  = verifyPassword($password, $hashVerificar) && $user !== false;
         if (!$senhaCorreta) {
             registrarTentativaFalhaLogin($username, $ip);
-            registrarAuditoria('auth', null, 'login_falha', $username);
+            registrarTentativaFalhaLogin('', $ip, LOGIN_IP_MAX_TENTATIVAS);
+            // Distingue usuario inexistente de senha errada em conta valida --
+            // ajuda a separar ruido de ataque real na analise forense.
+            $acaoFalha = ($user === false) ? 'login_falha_usuario_inexistente' : 'login_falha';
+            registrarAuditoria('auth', null, $acaoFalha, $username);
             responderErro(401, 'Usuario ou senha invalidos.');
         }
 

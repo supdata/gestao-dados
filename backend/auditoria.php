@@ -64,6 +64,10 @@ function registrarAuditoria(
     ?array $dadosAntes = null,
     ?array $dadosDepois = null
 ): void {
+    // Trunca o usuario ao tamanho da coluna (150). No login_falha o valor vem
+    // do corpo da requisicao e poderia ser arbitrariamente longo -- evita
+    // poluicao/inchaco da trilha de auditoria.
+    $usuario = $usuario !== null ? mb_substr($usuario, 0, 150) : null;
     try {
         $pdo = db();
         $colunas = ['tabela', 'registro_id', 'acao', 'usuario', 'dados_antes', 'dados_depois', 'ip', 'criado_em'];

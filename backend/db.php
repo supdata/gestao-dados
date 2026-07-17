@@ -44,6 +44,13 @@ function config(): array
         exit;
     }
 
+    if (($cfg['app_debug'] ?? false) === true) {
+        // Aviso de seguranca: com app_debug ligado, detalhes internos de erro
+        // (conexao do banco, SMTP) podem vazar para o cliente. Nunca deve ir
+        // para producao. Registrado no log pra facilitar a deteccao.
+        error_log('AVISO DE SEGURANCA: app_debug esta ATIVO em conf/config.php. Desative (app_debug = false) em producao.');
+    }
+
     return $cfg;
 }
 
@@ -720,6 +727,8 @@ function migrate(): void
     ensureColumn($pdo, tableName('usuarios'), 'ativo',                'INT NOT NULL DEFAULT 1');
     // Força troca de senha no próximo login (senha temporária enviada por e-mail).
     ensureColumn($pdo, tableName('usuarios'), 'must_change_password', 'INT NOT NULL DEFAULT 0');
+    // Revogacao em massa de tokens: corte por timestamp (ver revogarTodosTokens/exigirLogin).
+    ensureColumn($pdo, tableName('usuarios'), 'tokens_valid_after', $carimbo);
     ensureColumn($pdo, tableName('config_email'), 'testado_ok', 'INT NOT NULL DEFAULT 0');
     ensureColumn($pdo, tableName('config_projeto'), 'timeout_inatividade_min', 'INT NOT NULL DEFAULT 30');
     ensureColumn($pdo, tableName('acessos'), 'servidor', 'VARCHAR(150)');

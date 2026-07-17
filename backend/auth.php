@@ -60,6 +60,9 @@ function criarToken(array $dados): string
     $header = base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']) ?: '');
     $payload = $dados;
     $payload['exp'] = time() + ($minutos * 60);
+    // iat (issued at): momento de emissao. Usado pela revogacao em massa
+    // (tokens_valid_after) para recusar tokens emitidos antes de um corte.
+    $payload['iat'] = time();
     // jti (JWT ID): identifica esse token especifico, sem revelar nada do
     // payload. E o que permite revogar UM token (logout, troca de senha)
     // sem precisar invalidar a chave secreta de todo mundo -- ver
@@ -154,19 +157,20 @@ function tokenRevogado(string $jti): bool
 }
 
 /**
- * Marca todos os tokens ativos de um usuario como "deve trocar a senha".
- * Como nao indexamos tokens por usuario_id, a revogacao efetiva se da
- * via must_change_password=1: o frontend detecta o flag e redireciona
- * para a tela de troca de senha antes de qualquer outra acao.
+ * Revoga TODOS os tokens ativos de um usuario de imediato: grava o instante
+ * atual em "tokens_valid_after". Qualquer token cujo "iat" (emissao) seja
+ * anterior a esse instante e recusado em exigirLogin(), mesmo sem estar
+ * expirado nem individualmente revogado. Tambem marca must_change_password=1
+ * (fluxo de senha redefinida pelo admin). Ver exigirLogin().
  */
 function revogarTodosTokens(int $userId): void
 {
     $pdo = db();
     $pdo->prepare(
         'UPDATE ' . quoteIdent(tableName('usuarios')) .
-        ' SET ' . quoteIdent('must_change_password') . ' = 1' .
+        ' SET ' . quoteIdent('must_change_password') . ' = 1, ' . quoteIdent('tokens_valid_after') . ' = ?' .
         ' WHERE ' . quoteIdent('id') . ' = ?'
-    )->execute([$userId]);
+    )->execute([date('Y-m-d H:i:s'), $userId]);
 }
 
 /**
@@ -218,6 +222,13 @@ const LOGIN_BLOQUEIO_MINUTOS = 15;
  */
 const LOGIN_JANELA_MINUTOS = 15;
 
+/**
+ * Teto de falhas por IP (independente do username), na mesma janela. Protege
+ * contra password spraying: um IP testando uma senha comum contra muitos
+ * usernames nunca estoura o limite por par usuario+IP, mas estoura este.
+ */
+const LOGIN_IP_MAX_TENTATIVAS = 20;
+
 /** IP de quem esta fazendo a requisicao (usado so pra throttle, nao e logado em lugar nenhum). */
 function clienteIp(): string
 {
@@ -255,7 +266,7 @@ function checarBloqueioLogin(string $usuario, string $ip): ?int
  * Registra mais uma tentativa errada pra esse usuario+IP. Ao chegar em
  * LOGIN_MAX_TENTATIVAS, preenche "bloqueado_ate" (now + LOGIN_BLOQUEIO_MINUTOS).
  */
-function registrarTentativaFalhaLogin(string $usuario, string $ip): void
+function registrarTentativaFalhaLogin(string $usuario, string $ip, int $maxTentativas = LOGIN_MAX_TENTATIVAS, int $bloqueioMinutos = LOGIN_BLOQUEIO_MINUTOS): void
 {
     $pdo = db();
     $agora = date('Y-m-d H:i:s');
@@ -285,8 +296,8 @@ function registrarTentativaFalhaLogin(string $usuario, string $ip): void
     }
 
     $tentativas = (int) $linha['tentativas'] + 1;
-    $bloqueadoAte = $tentativas >= LOGIN_MAX_TENTATIVAS
-        ? date('Y-m-d H:i:s', time() + LOGIN_BLOQUEIO_MINUTOS * 60)
+    $bloqueadoAte = $tentativas >= $maxTentativas
+        ? date('Y-m-d H:i:s', time() + $bloqueioMinutos * 60)
         : null;
 
     $pdo->prepare(
@@ -343,6 +354,27 @@ function exigirLogin(): array
     // efeito imediato -- o token continuaria funcionando ate expirar.
     if ((int) ($user['ativo'] ?? 1) === 0) {
         responderErro(401, 'Conta desativada.');
+    }
+
+    // Revogacao em massa: token emitido ANTES do corte tokens_valid_after do
+    // usuario e recusado (ex.: admin redefiniu a senha). Ver revogarTodosTokens().
+    $validoApos = $user['tokens_valid_after'] ?? null;
+    if ($validoApos !== null && (string) $validoApos !== '') {
+        $iat = (int) ($payload['iat'] ?? 0);
+        if ($iat < (int) strtotime((string) $validoApos)) {
+            responderErro(401, 'Sessao encerrada. Faca login novamente.');
+        }
+    }
+
+    // Gate de senha temporaria NO SERVIDOR (nao so no frontend): enquanto
+    // must_change_password = 1, so liberamos as rotas essenciais do fluxo de
+    // troca. Qualquer outra rota e recusada com 403.
+    if ((int) ($user['must_change_password'] ?? 0) === 1) {
+        $rotaAtual = (string) ($GLOBALS['REQ_METODO'] ?? '') . ' ' . (string) ($GLOBALS['REQ_CAMINHO'] ?? '');
+        $rotasLiberadas = ['POST /auth/change-password', 'GET /auth/me', 'POST /auth/logout'];
+        if (!in_array($rotaAtual, $rotasLiberadas, true)) {
+            responderErro(403, 'Troque a senha temporaria antes de continuar.');
+        }
     }
 
     return $user;
