@@ -361,7 +361,7 @@ function exigirLogin(): array
     $validoApos = $user['tokens_valid_after'] ?? null;
     if ($validoApos !== null && (string) $validoApos !== '') {
         $iat = (int) ($payload['iat'] ?? 0);
-        if ($iat < (int) strtotime((string) $validoApos)) {
+        if ($iat <= (int) strtotime((string) $validoApos)) {
             responderErro(401, 'Sessao encerrada. Faca login novamente.');
         }
     }
