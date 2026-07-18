@@ -1638,6 +1638,28 @@ function despachar(string $metodo, string $caminho): void
         foreach ($linhas as $linha) {
             $campos = array_map(function ($c) use ($linha) {
                 $v = (string) ($linha[$c] ?? '');
+                // Campos-lista guardados como JSON (ex.: jobs.comando = passos,
+                // jobs.agendamentos) saem legiveis no relatorio, nao como JSON cru.
+                if ($v !== '' && $v[0] === '[') {
+                    $arr = json_decode($v, true);
+                    if (is_array($arr)) {
+                        $partes = [];
+                        foreach ($arr as $it) {
+                            if (!is_array($it)) { continue; }
+                            if (array_key_exists('nome', $it) || array_key_exists('comando', $it)) {
+                                $nm = trim((string) ($it['nome'] ?? ''));
+                                $cmd = trim((string) ($it['comando'] ?? ''));
+                                $partes[] = trim($nm . ($cmd !== '' ? ': ' . $cmd : ''));
+                            } elseif (array_key_exists('inicio', $it) || array_key_exists('fim', $it)) {
+                                $ini = trim((string) ($it['inicio'] ?? ''));
+                                $f = trim((string) ($it['fim'] ?? ''));
+                                $partes[] = $ini . ($f !== '' ? '-' . $f : '');
+                            }
+                        }
+                        $partes = array_values(array_filter($partes, static fn ($p) => $p !== ''));
+                        if (count($partes) > 0) { $v = implode(' | ', $partes); }
+                    }
+                }
                 // Neutraliza CSV injection: = + - @ no inicio da celula
                 if (preg_match('/^[=+\-@\t\r]/', $v)) {
                     $v = "'" . $v;

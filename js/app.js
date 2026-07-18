@@ -2636,6 +2636,14 @@ async function exportPdf(key, filtros) {
   const head = [cols.map((f) => tr(f.l))];
   const body = rows.map((r) => cols.map((f) => {
     const v = r[f.k];
+    if (f.t === 'passos') {
+      let a = v; if (typeof v === 'string') { try { a = JSON.parse(v); } catch (e) { a = []; } }
+      return Array.isArray(a) ? a.map((o) => (o && (o.nome || o.comando)) ? ((o.nome ? o.nome + ': ' : '') + (o.comando || '')) : '').filter(Boolean).join(' | ') : '';
+    }
+    if (f.t === 'agendas') {
+      let a = v; if (typeof v === 'string') { try { a = JSON.parse(v); } catch (e) { a = []; } }
+      return Array.isArray(a) ? a.map((o) => (o && (o.inicio || o.fim)) ? ((o.inicio || '') + (o.fim ? '-' + o.fim : '')) : '').filter(Boolean).join(' | ') : '';
+    }
     if (Array.isArray(v)) {
       return v.map((o) => (o && o.nome) ? (o.tipo ? o.nome + ' (' + o.tipo + ')' : o.nome) : '').filter(Boolean).join(', ');
     }
