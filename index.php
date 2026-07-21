@@ -380,6 +380,15 @@ header('Content-Type: text/html; charset=utf-8');
   <div class="modal" style="max-width:460px">
     <div class="modal-h"><h3 id="userModalTitle" data-i18n>Novo usuário</h3><button class="x" id="userClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12" /> <path d="M6 6l12 12" /></svg></button></div>
     <div class="modal-b" style="grid-template-columns:1fr">
+      <div class="fld" id="userFotoWrap" style="display:none">
+        <label data-i18n>Foto</label>
+        <div class="user-foto-edit">
+          <div class="av" id="userFotoPrev">?</div>
+          <input type="file" id="userFotoInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden data-oninput="userFotoEnviar">
+          <button type="button" class="btn btn-ghost btn-sm" data-act="userFotoEscolher" data-i18n>Alterar foto</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-act="userFotoRemover" data-i18n>Remover</button>
+        </div>
+      </div>
       <div class="fld"><label data-i18n>Login</label><input type="text" id="userLogin"></div>
       <div class="fld"><label data-i18n>Nome completo</label><input type="text" id="userNome"></div>
       <div class="fld"><label data-i18n>E-mail</label><input type="email" id="userEmail"></div>

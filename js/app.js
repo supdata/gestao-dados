@@ -139,6 +139,47 @@ function redimensionarImagem(file, lado = 256) {
 
 function perfilFotoEscolher() { const i = $('perfilFotoInput'); if (i) i.click(); }
 
+function userFotoEscolher() { const i = $('userFotoInput'); if (i) i.click(); }
+
+/** Depois de mexer na foto de alguem, deixa a tela coerente de novo. */
+async function refletirFotoAlterada(id, url) {
+  FOTOS_CACHE[id] = url;
+  const alvo = cache.usuarios ? cache.usuarios.find((u) => String(u.id) === String(id)) : null;
+  if (alvo) alvo.tem_foto = !!url;
+  pintarAvatar($('userFotoPrev'), url, alvo ? (alvo.nome_completo || alvo.username) : '');
+  const naTabela = document.querySelector(`.cell-avatar-ico[data-foto-uid="${id}"]`);
+  if (naTabela) {
+    pintarAvatar(naTabela, url, alvo ? (alvo.nome_completo || alvo.username) : '');
+    naTabela.style.color = url ? 'transparent' : '';
+  }
+  // Se o administrador mexeu na propria foto, os avatares do topo tambem mudam.
+  if (currentUser && String(currentUser.id) === String(id)) {
+    currentUser.tem_foto = !!url;
+    await pintarAvataresUsuario();
+  }
+}
+
+async function userFotoEnviar(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file || !userEditId) return;
+  try {
+    const dataUri = await redimensionarImagem(file);
+    await api.put(`/usuarios/${userEditId}/foto`, { foto: dataUri });
+    await refletirFotoAlterada(userEditId, dataUri);
+    toast('Foto atualizada');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function userFotoRemover() {
+  if (!userEditId) return;
+  try {
+    await api.del(`/usuarios/${userEditId}/foto`);
+    await refletirFotoAlterada(userEditId, null);
+    toast('Foto removida');
+  } catch (e) { toast(e.message, true); }
+}
+
 async function perfilFotoEnviar(input) {
   const file = input.files && input.files[0];
   input.value = '';               // permite reenviar o mesmo arquivo depois
@@ -404,6 +445,51 @@ const I18N = {
     'Não foi possível ler o arquivo.': 'Could not read the file.',
     'O arquivo escolhido não é uma imagem válida.': 'The selected file is not a valid image.',
     'Não foi possível processar a imagem.': 'Could not process the image.',
+    'A conexão está sem criptografia (Nenhuma). Usuário e senha serão transmitidos em texto claro na rede. Use TLS ou SSL sempre que possível.': 'The connection has no encryption (None). Username and password will travel in clear text over the network. Use TLS or SSL whenever possible.',
+    'A senha deve ter pelo menos 8 caracteres.': 'The password must be at least 8 characters long.',
+    'Ajuste os filtros para ampliar a busca.': 'Adjust the filters to broaden the search.',
+    'As senhas não coincidem.': 'The passwords do not match.',
+    'Atenção:': 'Warning:',
+    'Atualizar cadastro': 'Update record',
+    'Até': 'To',
+    'Ação': 'Action',
+    'Baixar modelo de importação (CSV)': 'Download import template (CSV)',
+    'Conectado': 'Connected',
+    'De': 'From',
+    'Deixe em branco para manter a senha atual.': 'Leave blank to keep the current password.',
+    'Diagrama e dicionário de dados': 'Diagram and data dictionary',
+    'Editar usuário': 'Edit user',
+    'Erro ao baixar diagrama': 'Error downloading diagram',
+    'Erro ao baixar manual da API': 'Error downloading API manual',
+    'Erro ao exportar': 'Error exporting',
+    'Erro ao salvar.': 'Error saving.',
+    'Escolha a paleta de cores do portal.': 'Choose the portal color palette.',
+    'Escolha o visual do menu lateral.': 'Choose the sidebar appearance.',
+    'Estilo da barra lateral': 'Sidebar style',
+    'Estrutura do banco de dados interno do portal, com a descrição de cada coluna': 'Structure of the portal internal database, with a description of each column',
+    'Filtrar': 'Filter',
+    'Guia em PDF de como usar cada módulo do portal': 'PDF guide on how to use each module of the portal',
+    'Limpar': 'Clear',
+    'Manual de uso da API do portal, com exemplo de requisição e resposta de cada rota': 'Manual for the portal API, with a request and response example for each route',
+    'Manual de uso do portal': 'Portal user manual',
+    'Manual de uso e esquema do banco de dados do portal': 'User manual and database schema of the portal',
+    'Nenhum evento encontrado': 'No events found',
+    'Página': 'Page',
+    'Quando': 'When',
+    'Registro': 'Record',
+    'Sem detalhes adicionais para este evento.': 'No further details for this event.',
+    'Senha definida! Faça login com a nova senha.': 'Password set! Sign in with the new password.',
+    'Servidor SMTP': 'SMTP server',
+    'Sessão': 'Session',
+    'Tema de cores': 'Color theme',
+    'Todas': 'All',
+    'login do usuário': 'user login',
+    'registro(s)': 'record(s)',
+    'Foto': 'Photo',
+    'Sem foto': 'No photo',
+    'Confirmar senha': 'Confirm password', 'Defina sua senha': 'Set your password',
+    'Por segurança, você precisa criar uma nova senha antes de continuar.': 'For security reasons, you must create a new password before continuing.',
+    'Salvar senha': 'Save password', 'Status da conta': 'Account status',
     'Cancelar': 'Cancel', 'Salvar registro': 'Save record', 'Novo registro': 'New record', 'Editar': 'Edit',
     'Salvar nova senha': 'Save new password', 'Senha atual': 'Current password', 'Nova senha': 'New password',
     'Novo usuário': 'New user', 'Login': 'Login', 'Nome completo': 'Full name',
@@ -2112,6 +2198,13 @@ function openUserModal(u) {
   toggleModulosWrap('userModulosWrap', $('userRoleSel').value);
   $('userRoleWrap').style.display = u ? 'none' : '';
   $('userSave').textContent = u ? tr('Atualizar cadastro') : tr('Criar usuário');
+  // Foto so na edicao: o upload usa o id do usuario, que ainda nao existe na
+  // criacao. Quem acabou de criar reabre o cadastro para definir a foto.
+  $('userFotoWrap').style.display = u ? '' : 'none';
+  if (u) {
+    pintarAvatar($('userFotoPrev'), null, u.nome_completo || u.username);
+    if (u.tem_foto) fotoUsuario(u.id).then((url) => { if (userEditId === String(u.id)) pintarAvatar($('userFotoPrev'), url, u.nome_completo || u.username); });
+  }
   $('userOverlay').classList.add('show');
 }
 function closeUserModal() { $('userOverlay').classList.remove('show'); userEditId = null; $('userLogin').value = ''; $('userLogin').readOnly = false; $('userLogin').style.opacity = ''; $('userNome').value = ''; $('userEmail').value = ''; $('userSenha').value = ''; $('userRoleSel').value = 'leitura'; $('userAtivoWrap').style.display = 'none'; $('userRoleWrap').style.display = ''; $('userSave').textContent = tr('Criar usuário'); }
@@ -3753,6 +3846,8 @@ removeTag,
   salvarPerfil,
   perfilFotoEscolher,
   perfilFotoRemover,
+  userFotoEscolher,
+  userFotoRemover,
   toggleMfaPerfil: (el) => abrirMfaToggle(el.dataset.ativo !== '1'),
   irMfaBannerPerfil: async () => { await navTo('perfil'); abrirMfaToggle(true); },
   setTemaCor,
@@ -3791,6 +3886,7 @@ const INPUT_ACTIONS = {
   syncPassos,
   syncAgendas,
   perfilFotoEnviar,
+  userFotoEnviar,
 };
 
 document.addEventListener('click', (e) => {
