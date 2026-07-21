@@ -48,8 +48,120 @@ function avatarColor(seed) {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
-function avatarCellHtml(nome) {
-  return `<div class="cell-avatar"><span class="cell-avatar-ico" style="background:${avatarColor(nome)}">${esc(initials(nome))}</span><span class="cell-avatar-txt">${esc(nome || '—')}</span></div>`;
+function avatarCellHtml(nome, uid) {
+  // data-foto-uid: preenchido depois do render por pintarFotosDaTabela().
+  const marca = uid ? ` data-foto-uid="${uid}"` : '';
+  return `<div class="cell-avatar"><span class="cell-avatar-ico"${marca} style="background:${avatarColor(nome)}">${esc(initials(nome))}</span><span class="cell-avatar-txt">${esc(nome || '—')}</span></div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Foto do usuario. A imagem fica no banco, em tabela propria (usuarios_foto),
+// e chega por GET /usuarios/{id}/foto como data URI dentro de um JSON -- e nao
+// direto no src da <img> -- porque a API exige o token no cabecalho Authorization
+// e a tag <img> nao tem como enviar cabecalho.
+// ---------------------------------------------------------------------------
+const FOTOS_CACHE = {};   // id -> data URI, ou null quando o usuario nao tem foto
+
+async function fotoUsuario(id) {
+  if (id in FOTOS_CACHE) return FOTOS_CACHE[id];
+  try {
+    const r = await api.get(`/usuarios/${id}/foto`);
+    FOTOS_CACHE[id] = r.foto || null;
+  } catch (e) {
+    FOTOS_CACHE[id] = null;   // 404 = sem foto; qualquer erro cai na inicial
+  }
+  return FOTOS_CACHE[id];
+}
+
+/** Mostra a foto no elemento, ou volta para a inicial do nome. */
+function pintarAvatar(el, url, nome) {
+  if (!el) return;
+  if (url) {
+    el.style.backgroundImage = `url("${url}")`;
+    el.style.backgroundSize = 'cover';
+    el.style.backgroundPosition = 'center';
+    el.textContent = '';
+  } else {
+    el.style.backgroundImage = '';
+    el.textContent = (nome || '?').slice(0, 1).toUpperCase();
+  }
+}
+
+/** Atualiza os avatares do usuario logado (menu lateral, topo e perfil). */
+async function pintarAvataresUsuario() {
+  if (!currentUser) return;
+  const nome = currentUser.nome_completo || currentUser.username;
+  const url = currentUser.tem_foto ? await fotoUsuario(currentUser.id) : null;
+  document.querySelectorAll('.js-user-av').forEach((e) => pintarAvatar(e, url, nome));
+  pintarAvatar(document.querySelector('.perfil-avatar'), url, nome);
+}
+
+/** Preenche as fotos na tabela de usuarios depois que ela ja foi desenhada. */
+function pintarFotosDaTabela(usuarios) {
+  (usuarios || []).forEach((u) => {
+    if (!u.tem_foto) return;
+    fotoUsuario(u.id).then((url) => {
+      if (!url) return;
+      const el = document.querySelector(`.cell-avatar-ico[data-foto-uid="${u.id}"]`);
+      if (el) { pintarAvatar(el, url, ''); el.style.color = 'transparent'; }
+    });
+  });
+}
+
+/**
+ * Reduz a imagem escolhida para um quadrado de 256px antes de subir: o recorte
+ * central evita distorcer, e o JPEG a 85% costuma ficar abaixo de 60KB -- bem
+ * dentro do limite aceito pela API.
+ */
+function redimensionarImagem(file, lado = 256) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error(tr('Não foi possível ler o arquivo.')));
+    fr.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error(tr('O arquivo escolhido não é uma imagem válida.')));
+      img.onload = () => {
+        const menor = Math.min(img.width, img.height);
+        const sx = (img.width - menor) / 2;
+        const sy = (img.height - menor) / 2;
+        const cv = document.createElement('canvas');
+        cv.width = lado; cv.height = lado;
+        const ctx = cv.getContext('2d');
+        if (!ctx) { reject(new Error(tr('Não foi possível processar a imagem.'))); return; }
+        ctx.drawImage(img, sx, sy, menor, menor, 0, 0, lado, lado);
+        resolve(cv.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = String(fr.result);
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+function perfilFotoEscolher() { const i = $('perfilFotoInput'); if (i) i.click(); }
+
+async function perfilFotoEnviar(input) {
+  const file = input.files && input.files[0];
+  input.value = '';               // permite reenviar o mesmo arquivo depois
+  if (!file || !currentUser) return;
+  try {
+    const dataUri = await redimensionarImagem(file);
+    await api.put(`/usuarios/${currentUser.id}/foto`, { foto: dataUri });
+    FOTOS_CACHE[currentUser.id] = dataUri;
+    currentUser.tem_foto = true;
+    await pintarAvataresUsuario();
+    toast('Foto atualizada');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function perfilFotoRemover() {
+  if (!currentUser) return;
+  try {
+    await api.del(`/usuarios/${currentUser.id}/foto`);
+    FOTOS_CACHE[currentUser.id] = null;
+    currentUser.tem_foto = false;
+    await pintarAvataresUsuario();
+    toast('Foto removida');
+  } catch (e) { toast(e.message, true); }
 }
 
 // ---------------------------------------------------------------------------
@@ -260,6 +372,7 @@ const I18N = {
     'Auditoria': 'Audit', 'Trilha de quem fez o quê, quando e a partir de qual IP': 'Trail of who did what, when, and from which IP',
     'Anterior': 'Previous', 'Próxima': 'Next',
     'Documentação': 'Documentation',
+    'Gerenciar': 'Manage', 'opção': 'option', 'opções': 'options',
     'Jobs': 'Jobs', 'Jobs e rotinas': 'Jobs & routines',
     'Jobs, ETLs e rotinas agendadas: agendamento, execução e responsável': 'Jobs, ETLs and scheduled routines: schedule, run and owner',
     'Servidor / instância': 'Server / instance', 'Descrição / finalidade': 'Description / purpose',
@@ -286,6 +399,11 @@ const I18N = {
     'Buscar...': 'Search...', 'Alternar tema claro/escuro': 'Toggle light/dark theme', 'Adicionar': 'Add',
     'Usuário': 'Username', 'Senha': 'Password', 'Entrar': 'Sign in', 'Entrando...': 'Signing in...',
     'Esqueceu sua senha? Fale com o administrador deste portal.': 'Forgot your password? Contact this portal\'s administrator.',
+    'Alterar foto': 'Change photo', 'Remover': 'Remove', 'Foto atualizada': 'Photo updated',
+    'Foto removida': 'Photo removed',
+    'Não foi possível ler o arquivo.': 'Could not read the file.',
+    'O arquivo escolhido não é uma imagem válida.': 'The selected file is not a valid image.',
+    'Não foi possível processar a imagem.': 'Could not process the image.',
     'Cancelar': 'Cancel', 'Salvar registro': 'Save record', 'Novo registro': 'New record', 'Editar': 'Edit',
     'Salvar nova senha': 'Save new password', 'Senha atual': 'Current password', 'Nova senha': 'New password',
     'Novo usuário': 'New user', 'Login': 'Login', 'Nome completo': 'Full name',
@@ -679,6 +797,10 @@ function afterLogin() {
   showApp();
   $('userName').textContent = currentUser.nome_completo || currentUser.username;
   $('userAvatar').textContent = (currentUser.nome_completo || currentUser.username).slice(0, 1).toUpperCase();
+  document.querySelectorAll('.js-user-av').forEach((e) => { e.textContent = (currentUser.nome_completo || currentUser.username).slice(0, 1).toUpperCase(); });
+  pintarAvataresUsuario();
+  document.querySelectorAll('.js-user-nm').forEach((e) => { e.textContent = currentUser.nome_completo || currentUser.username; });
+  document.querySelectorAll('.js-user-mail').forEach((e) => { e.textContent = currentUser.email || currentUser.username; });
   const isAdmin = currentUser.role === 'admin' || currentUser.role === 'master';
   const isMaster = currentUser.role === 'master';
   $('navUsuarios').style.display = isAdmin ? '' : 'none';
@@ -842,8 +964,19 @@ function showSkeleton() {
   $('content').innerHTML = '<div class="card"><div class="skeleton">' + Array(5).fill('<div class="bar" style="width:' + (60 + Math.random() * 35) + '%"></div>').join('') + '</div></div>';
 }
 
+/* Icone da secao no topbar: reaproveita o SVG do proprio item do menu lateral,
+   assim cada modulo mostra o mesmo icone em todo lugar, sem duplicar markup. */
+function atualizarIconeSecao(v) {
+  const alvo = $('viewIcon');
+  if (!alvo) return;
+  const item = document.querySelector('.nav-item[data-view="' + v + '"]');
+  const ico = item ? item.querySelector('svg') : null;
+  alvo.innerHTML = ico ? ico.outerHTML : '';
+}
+
 async function navTo(v) {
   view = v; query = ''; $('search').value = '';
+  atualizarIconeSecao(v);
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
   $('side').classList.remove('open');
 
@@ -1235,7 +1368,7 @@ async function renderBackup() {
 
   let h = `<div class="sec-h" style="margin-top:0">${esc(tr('Política por banco'))}</div>` + tableHtml('backup', polCols, pol, 'política', !!query);
   if (pol.length) h += `<div style="margin-top:12px;text-align:right"><button class="btn btn-ghost" data-act="exportCsv" data-key="backup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4" /> <path d="M5 12v-7a2 2 0 0 1 2 -2h7l5 5v4" /> <path d="M7 16.5a1.5 1.5 0 0 0 -3 0v3a1.5 1.5 0 0 0 3 0" /> <path d="M10 20.25c0 .414 .336 .75 .75 .75h1.25a1 1 0 0 0 1 -1v-1a1 1 0 0 0 -1 -1h-1a1 1 0 0 1 -1 -1v-1a1 1 0 0 1 1 -1h1.25a.75 .75 0 0 1 .75 .75" /> <path d="M16 15l2 6l2 -6" /></svg>${esc(tr('Exportar CSV'))}</button></div>`;
-  h += `<div class="sec-h">${esc(tr('Restore'))} ${canWrite('restore') ? `<button class="btn btn-green" style="margin-left:auto;padding:5px 11px" data-act="openNew" data-key="restore">${esc(tr('Adicionar'))}</button>` : ''}</div>` + tableHtml('restore', rtCols, rts, 'teste', !!query);
+  h += `<div class="sec-h">${esc(tr('Restore'))} ${canWrite('restore') ? `<button class="btn btn-primary sec-h-btn" data-act="openNew" data-key="restore">${esc(tr('Adicionar'))}</button>` : ''}</div>` + tableHtml('restore', rtCols, rts, 'teste', !!query);
   $('content').innerHTML = h;
 }
 
@@ -1896,7 +2029,7 @@ function usuariosTableHtml(users) {
     h += `<td class="td-check"><input type="checkbox" data-act="tblToggleRow" data-key="usuarios" data-id="${u.id}" ${st.sel.has(String(u.id)) ? 'checked' : ''}></td>`;
     h += `<td class="mono" data-col="username" style="${st.hidden.has('username') ? 'display:none' : ''}">${esc(u.username)}</td>`;
     h += `<td data-col="email" style="${st.hidden.has('email') ? 'display:none' : ''}">${esc(u.email || '—')}</td>`;
-    h += `<td data-col="nome_completo" style="${st.hidden.has('nome_completo') ? 'display:none' : ''}">${avatarCellHtml(u.nome_completo || u.username)}</td>`;
+    h += `<td data-col="nome_completo" style="${st.hidden.has('nome_completo') ? 'display:none' : ''}">${avatarCellHtml(u.nome_completo || u.username, u.id)}</td>`;
     h += `<td data-col="role" style="${st.hidden.has('role') ? 'display:none' : ''}"><span class="pill ${ROLE_PILL[u.role] || 'p-gray'}">${esc(tr(ROLE_LABEL[u.role] || 'Leitura'))}</span></td>`;
     h += `<td class="mono" data-col="criado_em" style="${st.hidden.has('criado_em') ? 'display:none' : ''}">${u.criado_em ? fmtDate(u.criado_em.slice(0, 10)) : '—'}</td>`;
     h += `<td><div class="row-act" style="justify-content:flex-end"><button class="icon-btn" data-act="openEditUsuario" data-id="${u.id}" title="${esc(tr('Editar'))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /> <path d="M13.5 6.5l4 4" /></svg></button><button class="icon-btn del" data-act="delUsuario" data-id="${u.id}" title="${esc(tr('Remover'))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l16 0" /> <path d="M10 11l0 6" /> <path d="M14 11l0 6" /> <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /> <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg></button></div></td></tr>`;
@@ -1926,6 +2059,7 @@ async function renderRoles() {
   });
   h += '</tbody></table></div></div>';
   $('content').innerHTML = h;
+  pintarFotosDaTabela(pageRows);   // as fotos chegam depois, sem travar a tabela
 }
 
 async function delUsuario(id) {
@@ -2054,23 +2188,23 @@ let cadastroSelIds = new Set(); // ids marcados para exclusão em massa na gavet
 
 async function renderCadastro() {
   try { await fetchTipos(); } catch (e) { $('content').innerHTML = `<div class="card"><div class="empty"><p>${esc(e.message)}</p></div></div>`; return; }
-  const grupos = {};
-  CATEGORIAS_CADASTRO.forEach((c) => { (grupos[c.grupo] = grupos[c.grupo] || []).push(c); });
-  let h = '';
-  Object.entries(grupos).forEach(([grupo, cats]) => {
-    h += `<div class="sec-h" style="margin-top:${h ? '24px' : '0'}">${esc(tr(grupo))}</div><div class="cadastro-list">`;
-    cats.forEach((c) => {
-      const n = (tiposPorCategoria[c.cat] || []).length;
-      h += `<button type="button" class="cadastro-list-row" data-act="openCadastroDrawer" data-cat="${c.cat}">
-        <div class="cadastro-ico">${I[c.ico] || I.db}</div>
-        <div class="cadastro-list-label">${esc(tr(c.label))}</div>
-        <div class="cnt">${n}</div>
-        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6l-6 6" /></svg>
-      </button>`;
-    });
-    h += '</div>';
-  });
-  $('content').innerHTML = h;
+  // Grade de cartoes (mesmo padrao visual de Relatorios). Cada cartao carrega o
+  // modulo a que pertence porque varias categorias repetem o nome entre modulos
+  // ("Tipo", "Ambiente", "Criticidade", "Status") -- sem isso ficam ambiguas.
+  const cards = CATEGORIAS_CADASTRO.map((c) => {
+    const n = (tiposPorCategoria[c.cat] || []).length;
+    const plural = n === 1 ? tr('opção') : tr('opções');
+    return `<button type="button" class="cad-card" data-act="openCadastroDrawer" data-cat="${c.cat}">
+      <div class="cadastro-ico">${I[c.ico] || I.db}</div>
+      <div class="cad-card-grupo">${esc(tr(c.grupo))}</div>
+      <div class="cad-card-label">${esc(tr(c.label))}</div>
+      <div class="cad-card-foot">
+        <span class="cnt">${n} ${esc(plural)}</span>
+        <span class="cad-card-cta">${esc(tr('Gerenciar'))}${I.chevRight}</span>
+      </div>
+    </button>`;
+  }).join('');
+  $('content').innerHTML = `<div class="cad-grid">${cards}</div>`;
 }
 
 function cadastroDrawerListHtml(cat) {
@@ -2792,6 +2926,11 @@ function renderPerfil() {
   const estiloAtual = u.estilo_side || 'claro';
   $('content').innerHTML = `<div class="perfil-wrap"><div class="card perfil-card">
     <div class="perfil-avatar">${esc(nome.slice(0, 1).toUpperCase())}</div>
+    <div class="perfil-foto-acoes">
+      <input type="file" id="perfilFotoInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden data-oninput="perfilFotoEnviar">
+      <button type="button" class="btn btn-ghost btn-sm" data-act="perfilFotoEscolher">${esc(tr('Alterar foto'))}</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-act="perfilFotoRemover">${esc(tr('Remover'))}</button>
+    </div>
     <div class="perfil-nome">${esc(nome)}</div>
     <div class="perfil-login">@${esc(u.username)}</div>
     <div class="perfil-papel"><span class="pill ${ROLE_PILL[u.role] || 'p-gray'}">${esc(tr(ROLE_LABEL[u.role] || 'Leitura'))}</span></div>
@@ -2852,6 +2991,10 @@ async function salvarPerfil() {
     });
     $('userName').textContent = currentUser.nome_completo || currentUser.username;
     $('userAvatar').textContent = (currentUser.nome_completo || currentUser.username).slice(0, 1).toUpperCase();
+    document.querySelectorAll('.js-user-av').forEach((e) => { e.textContent = (currentUser.nome_completo || currentUser.username).slice(0, 1).toUpperCase(); });
+    pintarAvataresUsuario();
+    document.querySelectorAll('.js-user-nm').forEach((e) => { e.textContent = currentUser.nome_completo || currentUser.username; });
+    document.querySelectorAll('.js-user-mail').forEach((e) => { e.textContent = currentUser.email || currentUser.username; });
     toast('Perfil atualizado');
   } catch (e) { toast(e.message, true); }
 }
@@ -3039,6 +3182,7 @@ async function renderAuditoria() {
 
 document.querySelectorAll('.nav-item[data-view]').forEach((b) => b.addEventListener('click', () => navTo(b.dataset.view)));
 $('userChip').addEventListener('click', () => navTo('perfil'));
+if ($('userChipTop')) $('userChipTop').addEventListener('click', () => navTo('perfil'));
 $('addBtn').addEventListener('click', () => { if (view === 'usuarios') openUserModal(); else openNew(view); });
 $('modalClose').addEventListener('click', closeModal);
 $('modalCancel').addEventListener('click', closeModal);
@@ -3607,6 +3751,8 @@ removeTag,
   exportPdfRelatorio: (el) => exportPdfRelatorio(el.dataset.key),
   // Perfil
   salvarPerfil,
+  perfilFotoEscolher,
+  perfilFotoRemover,
   toggleMfaPerfil: (el) => abrirMfaToggle(el.dataset.ativo !== '1'),
   irMfaBannerPerfil: async () => { await navTo('perfil'); abrirMfaToggle(true); },
   setTemaCor,
@@ -3644,6 +3790,7 @@ const INPUT_ACTIONS = {
   syncObjetos,
   syncPassos,
   syncAgendas,
+  perfilFotoEnviar,
 };
 
 document.addEventListener('click', (e) => {

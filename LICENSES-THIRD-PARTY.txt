@@ -48,10 +48,15 @@ jsPDF-AutoTable
 2. FONTES (Google Fonts)
 --------------------------------------------------------------------------------
 
+Inter
+  Licenca ..... SIL Open Font License 1.1 (OFL-1.1)
+  Origem ...... https://fonts.google.com/specimen/Inter
+  Uso ......... Tipografia da interface principal (index.php)
+
 Google Sans
   Licenca ..... SIL Open Font License 1.1 (OFL-1.1)
   Origem ...... https://fonts.google.com/specimen/Google+Sans
-  Uso ......... Tipografia da interface (index.php e setup/index.php)
+  Uso ......... Tipografia do assistente de instalacao (setup/index.php)
   Obs ......... Liberada pela Google sob OFL em dezembro/2025. Antes disso era
                 restrita aos produtos da propria Google -- versoes anteriores
                 deste projeto a usavam quando ainda nao era licenciada assim.
@@ -59,7 +64,7 @@ Google Sans
 Datatype
   Licenca ..... SIL Open Font License 1.1 (OFL-1.1)
   Origem ...... https://fonts.google.com/specimen/Datatype
-  Uso ......... Fonte de apoio para numeros e dados (index.php e setup/index.php)
+  Uso ......... Fonte de apoio no assistente de instalacao (setup/index.php)
 
 Obs sobre a OFL: as fontes podem ser usadas, incorporadas e redistribuidas
 livremente, inclusive em projetos comerciais. A unica restricao relevante e

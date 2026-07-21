@@ -513,6 +513,18 @@ function migrate(): void
         'sqlite' => 'TEXT',
     ][$driver];
 
+    // Texto LONGO -- para conteudo que nao cabe num TEXT do MySQL, que guarda
+    // no maximo 65.535 bytes (~64KB). Imagens em base64 (logo do projeto e
+    // foto de usuario) estouram esse limite facilmente: no MySQL isso resulta
+    // em erro "Data too long" (modo estrito) ou truncamento silencioso. Nos
+    // demais motores TEXT/NVARCHAR(MAX) ja sao praticamente ilimitados.
+    $txtLongo = [
+        'mysql' => 'MEDIUMTEXT',
+        'pgsql' => 'TEXT',
+        'sqlsrv' => 'NVARCHAR(MAX)',
+        'sqlite' => 'TEXT',
+    ][$driver];
+
     // criado_em/atualizado_em: quem preenche o valor e a aplicacao (em PHP,
     // com date('Y-m-d H:i:s')), nao um DEFAULT do banco -- assim nao
     // dependemos de CURRENT_TIMESTAMP vs GETDATE() vs etc.
@@ -695,7 +707,7 @@ function migrate(): void
         'config_projeto' => [
             'id' => $pk,
             'nome_projeto' => 'VARCHAR(160)',
-            'logo_data' => $txt,
+            'logo_data' => $txtLongo,
             'atualizado_em' => $carimbo,
         ],
         // Controle de tentativas de login (protecao contra forca bruta).
@@ -742,6 +754,18 @@ function migrate(): void
         // autenticacao). dados_antes/dados_depois guardam um JSON com o
         // estado do registro antes/depois da operacao (null quando nao se
         // aplica, ex.: login). Ver registrarAuditoria() em backend/crud.php.
+        // Foto do usuario em tabela PROPRIA (e nao numa coluna de "usuarios"):
+        // o codigo faz "SELECT * FROM usuarios" em varios pontos -- inclusive
+        // no exigirLogin(), que roda em TODA requisicao autenticada. Com a
+        // imagem ali dentro, o base64 viajaria do banco a cada clique. Aqui
+        // ela so e lida quando alguem realmente pede a foto.
+        // usuario_id e chave primaria SEM auto-incremento de proposito: evita
+        // o IDENTITY_INSERT do SQL Server na hora de gravar.
+        'usuarios_foto' => [
+            'usuario_id' => 'INT NOT NULL PRIMARY KEY',
+            'foto' => $txtLongo,
+            'atualizado_em' => $carimbo,
+        ],
         'auditoria_log' => [
             'id' => $pk,
             'tabela' => 'VARCHAR(60) NOT NULL',
@@ -801,6 +825,18 @@ function migrate(): void
     ensureColumn($pdo, tableName('integracoes'),      'criado_por', 'VARCHAR(150)');
     // Jobs: agendamentos (Inicio->Fim) como JSON; substitui ultima/proxima execucao.
     ensureColumn($pdo, tableName('jobs'), 'agendamentos', $txt);
+
+    // Correcao de instalacoes MySQL antigas: logo_data foi criada como TEXT
+    // (64KB) mas a aplicacao aceita imagens bem maiores. Converte para
+    // MEDIUMTEXT. Idempotente -- rodar de novo nao causa efeito algum.
+    if ($driver === 'mysql') {
+        try {
+            $pdo->exec('ALTER TABLE ' . quoteIdent(tableName('config_projeto')) .
+                ' MODIFY ' . quoteIdent('logo_data') . ' MEDIUMTEXT');
+        } catch (Throwable $e) {
+            // Sem permissao de ALTER ou coluna ja convertida -- segue o jogo.
+        }
+    }
 
     // Acessos > Nivel de acesso passou de lista fixa (antigo OPT.nivel no
     // front) pra categoria do Cadastro -- diferente das categorias abaixo,

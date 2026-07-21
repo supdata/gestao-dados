@@ -82,6 +82,49 @@ function responderVazio(int $status): never
  * @param array<string, mixed> $user
  * @return array<string, mixed>
  */
+/**
+ * Valida uma imagem recebida como data URI. Devolve a mensagem de erro, ou
+ * null se estiver tudo certo. Mesma politica ja usada pela logo do projeto:
+ * so bitmap (SVG e recusado por ser vetor de execucao/XSS), e o binario
+ * precisa ser mesmo uma imagem -- nao basta o cabecalho dizer que e.
+ */
+function erroImagemDataUri(string $dado, int $limiteBytes): ?string
+{
+    $tiposPermitidos = ['data:image/png;', 'data:image/jpeg;', 'data:image/webp;', 'data:image/gif;'];
+    $tipoOk = false;
+    foreach ($tiposPermitidos as $prefixo) {
+        if (str_starts_with($dado, $prefixo)) {
+            $tipoOk = true;
+            break;
+        }
+    }
+    if (!$tipoOk) {
+        return 'A imagem precisa ser PNG, JPEG, WEBP ou GIF (SVG nao e aceito por seguranca).';
+    }
+    if (strlen($dado) > $limiteBytes) {
+        return 'Imagem muito grande.';
+    }
+    $virgula = strpos($dado, ',');
+    $binario = $virgula === false ? false : base64_decode(substr($dado, $virgula + 1), true);
+    if ($binario === false || @getimagesizefromstring($binario) === false) {
+        return 'O arquivo enviado nao e uma imagem valida.';
+    }
+    return null;
+}
+
+/** True se o usuario tem foto cadastrada (consulta barata, sem trazer o blob). */
+function usuarioTemFoto(int $usuarioId): bool
+{
+    $pdo = db();
+    $stmt = $pdo->prepare('SELECT 1 FROM ' . quoteIdent(tableName('usuarios_foto')) . ' WHERE ' . quoteIdent('usuario_id') . ' = ?');
+    $stmt->execute([$usuarioId]);
+    return (bool) $stmt->fetchColumn();
+}
+
+/**
+ * @param array<string, mixed> $user
+ * @return array<string, mixed>
+ */
 function semSenha(array $user): array
 {
     unset($user['password_hash']);
@@ -837,7 +880,9 @@ function despachar(string $metodo, string $caminho): void
 
     if ($metodo === 'GET' && $caminho === '/auth/me') {
         $user = exigirLogin();
-        responderJson(semSenha($user));
+        $meus = semSenha($user);
+        $meus['tem_foto'] = usuarioTemFoto((int) $user['id']);
+        responderJson($meus);
     }
 
     // Auto-atualizacao do proprio perfil (nome/e-mail) -- qualquer usuario
@@ -949,7 +994,19 @@ function despachar(string $metodo, string $caminho): void
         }
         /** @var list<array<string, mixed>> $todosUsuarios */
         $todosUsuarios = $stmtAll->fetchAll();
-        responderJson(array_map('semSenha', $todosUsuarios));
+        // Quem tem foto: uma consulta unica so com os ids, sem trazer imagem.
+        $comFoto = [];
+        $stmtF = $pdo->query('SELECT ' . quoteIdent('usuario_id') . ' FROM ' . quoteIdent(tableName('usuarios_foto')));
+        if ($stmtF !== false) {
+            foreach ($stmtF->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+                $comFoto[(int) $uid] = true;
+            }
+        }
+        responderJson(array_map(static function (array $u) use ($comFoto): array {
+            $lim = semSenha($u);
+            $lim['tem_foto'] = isset($comFoto[(int) $u['id']]);
+            return $lim;
+        }, $todosUsuarios));
     }
 
     if ($caminho === '/usuarios' && $metodo === 'POST') {
@@ -1133,6 +1190,64 @@ function despachar(string $metodo, string $caminho): void
         responderJson($atualizadoArr);
     }
 
+    // ---- /usuarios/{id}/foto (ver, definir e remover a foto do usuario) ---
+    // A imagem mora na tabela usuarios_foto (ver migrate() em backend/db.php).
+    // Cada um mexe na propria foto; administrador mexe na de qualquer um.
+    if (preg_match('#^/usuarios/(\d+)/foto$#', $caminho, $m)) {
+        $user = exigirLogin();
+        $id = (int) $m[1];
+        $ehDono = (int) $user['id'] === $id;
+        $ehAdmin = in_array((string) ($user['role'] ?? ''), ['admin', 'master'], true);
+        $pdo = db();
+        $tabFoto = quoteIdent(tableName('usuarios_foto'));
+
+        // Ver: qualquer usuario logado (as fotos aparecem em listas do portal).
+        if ($metodo === 'GET') {
+            $stmt = $pdo->prepare('SELECT ' . quoteIdent('foto') . ' FROM ' . $tabFoto . ' WHERE ' . quoteIdent('usuario_id') . ' = ?');
+            $stmt->execute([$id]);
+            $foto = $stmt->fetchColumn();
+            if ($foto === false) {
+                responderErro(404, 'Usuario sem foto.');
+            }
+            responderJson(['foto' => (string) $foto]);
+        }
+
+        if (!$ehDono && !$ehAdmin) {
+            responderErro(403, 'Voce so pode alterar a sua propria foto.');
+        }
+
+        if ($metodo === 'PUT') {
+            $body = corpoRequisicao();
+            $foto = trim((string) ($body['foto'] ?? ''));
+            if ($foto === '') {
+                responderErro(422, 'Envie a imagem.');
+            }
+            // ~1MB de data URI ja e folgado: o front reduz para 256x256 antes
+            // de enviar, o que costuma dar menos de 60KB.
+            $erro = erroImagemDataUri($foto, 1_100_000);
+            if ($erro !== null) {
+                responderErro(422, $erro);
+            }
+            $agora = date('Y-m-d H:i:s');
+            $existe = usuarioTemFoto($id);
+            if ($existe) {
+                $pdo->prepare('UPDATE ' . $tabFoto . ' SET ' . quoteIdent('foto') . ' = ?, ' . quoteIdent('atualizado_em') . ' = ? WHERE ' . quoteIdent('usuario_id') . ' = ?')
+                    ->execute([$foto, $agora, $id]);
+            } else {
+                $pdo->prepare('INSERT INTO ' . $tabFoto . ' (' . quoteIdent('usuario_id') . ', ' . quoteIdent('foto') . ', ' . quoteIdent('atualizado_em') . ') VALUES (?, ?, ?)')
+                    ->execute([$id, $foto, $agora]);
+            }
+            registrarAuditoria('usuarios', $id, 'atualizar', (string) $user['username'], null, ['foto' => 'atualizada']);
+            responderJson(['ok' => true]);
+        }
+
+        if ($metodo === 'DELETE') {
+            $pdo->prepare('DELETE FROM ' . $tabFoto . ' WHERE ' . quoteIdent('usuario_id') . ' = ?')->execute([$id]);
+            registrarAuditoria('usuarios', $id, 'atualizar', (string) $user['username'], null, ['foto' => 'removida']);
+            responderVazio(204);
+        }
+    }
+
     // ---- /usuarios/{id}/permissoes (definir role + modulos, so admin) --
     if (preg_match('#^/usuarios/(\d+)/permissoes$#', $caminho, $m) && $metodo === 'PUT') {
         $admin = exigirLogin();
@@ -1216,6 +1331,8 @@ function despachar(string $metodo, string $caminho): void
         }
 
         $pdo->prepare('DELETE FROM ' . quoteIdent(tableName('usuarios')) . ' WHERE ' . quoteIdent('id') . ' = ?')->execute([$id]);
+        // O projeto nao usa FOREIGN KEY: a limpeza da foto e feita aqui.
+        $pdo->prepare('DELETE FROM ' . quoteIdent(tableName('usuarios_foto')) . ' WHERE ' . quoteIdent('usuario_id') . ' = ?')->execute([$id]);
         registrarAuditoria('usuarios', $id, 'excluir', (string) $admin['username'], semSenha($user), null);
         responderVazio(204);
     }

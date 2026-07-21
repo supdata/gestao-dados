@@ -1,45 +1,47 @@
 :root,[data-theme="light"]{
-  --content:#F4F4F2; --surface:#FFFFFF; --surface-2:#EEECEA;
-  --ink:#17160F; --muted:#6B655A; --faint:#9C9586;
-  --border:#E9E3D6; --border-2:#DCD3BF;
-  --accent:#A9802E; --accent-ink:#7C5D1E; --accent-soft:#F3E7CC;
-  --amber:#B5751F; --amber-soft:#FBEFD9;
-  --red:#B23B3B; --red-soft:#FBE9E9;
-  --green:#2E7D52; --green-soft:#E4F1E9;
-  --violet:#6B4FA0; --violet-soft:#ECE5F7;
-  --side-bg:var(--surface); --side-border:var(--border); --side-strong:var(--ink);
-  --side-ink:var(--muted); --side-muted:var(--faint);
-  --side-hover-bg:var(--surface-2); --side-hover-ink:var(--ink);
-  --side-active-bg:var(--accent-soft); --side-active-ink:var(--accent-ink);
-  --side-active-badge-bg:var(--accent); --side-active-badge-ink:#fff;
-  --side-foot-bg:var(--surface-2); --side-foot-ink:var(--muted);
-  --side-foot-hover-bg:var(--border); --side-foot-hover-ink:var(--ink);
-  --side-chip-bg:var(--surface-2); --side-badge-bg:var(--accent-soft); --side-badge-ink:var(--accent-ink);
-  --toast-bg:#15130C; --toast-ink:#F4EFE3;
-  --login-grad:radial-gradient(circle at 20% 20%,#FBF9F4 0%,#F4F0E5 55%,#EAE2CD 100%);
+  --content:#F9FAFB; --surface:#FFFFFF; --surface-2:#F9FAFB;
+  --ink:#111827; --muted:#6B7280; --faint:#9CA3AF;
+  --border:#F3F4F6; --border-2:#E5E7EB;
+  --accent:#059669; --accent-ink:#047857; --accent-soft:#ECFDF5;
+  --amber:#B45309; --amber-soft:#FFFBEB;
+  --red:#DC2626; --red-soft:#FEF2F2;
+  --green:#047857; --green-soft:#ECFDF5;
+  --violet:#1D4ED8; --violet-soft:#EFF6FF;
+  --side-bg:#FFFFFF; --side-border:#F3F4F6; --side-strong:#111827;
+  --side-ink:#4B5563; --side-muted:#9CA3AF;
+  --side-hover-bg:#F9FAFB; --side-hover-ink:#111827;
+  --side-active-bg:#ECFDF5; --side-active-ink:#047857;
+  --side-active-badge-bg:#059669; --side-active-badge-ink:#fff;
+  --side-foot-bg:transparent; --side-foot-ink:#4B5563;
+  --side-foot-hover-bg:#F9FAFB; --side-foot-hover-ink:#111827;
+  --side-chip-bg:#F9FAFB; --side-badge-bg:#F3F4F6; --side-badge-ink:#4B5563;
+  --toast-bg:#111827; --toast-ink:#F9FAFB;
+  --login-grad:radial-gradient(circle at 20% 20%,#FFFFFF 0%,#F3F4F6 55%,#E5E7EB 100%);
+  --shadow-card:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);
   --r:12px; --r-sm:8px;
-  --sans:'Google Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  --mono:'Datatype',ui-monospace,'SF Mono',Menlo,monospace;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
 }
 [data-theme="dark"]{
-  --content:#0A0A09; --surface:#161513; --surface-2:#1D1B17;
-  --ink:#F1ECDF; --muted:#A39C8C; --faint:#6F6A5C;
-  --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.16);
-  --accent:#D4AF37; --accent-ink:#E8C766; --accent-soft:rgba(212,175,55,.16);
-  --amber:#E3A857; --amber-soft:rgba(181,117,31,.2);
-  --red:#E08585; --red-soft:rgba(178,59,59,.2);
-  --green:#5FCB8E; --green-soft:rgba(46,125,82,.22);
-  --violet:#B79FE8; --violet-soft:rgba(167,139,250,.18);
-  --side-bg:var(--surface); --side-border:var(--border); --side-strong:var(--ink);
-  --side-ink:var(--muted); --side-muted:var(--faint);
-  --side-hover-bg:var(--surface-2); --side-hover-ink:var(--ink);
-  --side-active-bg:var(--accent-soft); --side-active-ink:var(--accent-ink);
-  --side-active-badge-bg:var(--accent); --side-active-badge-ink:#fff;
-  --side-foot-bg:var(--surface-2); --side-foot-ink:var(--muted);
-  --side-foot-hover-bg:var(--border); --side-foot-hover-ink:var(--ink);
-  --side-chip-bg:var(--surface-2); --side-badge-bg:var(--accent-soft); --side-badge-ink:var(--accent-ink);
-  --toast-bg:#211F1A; --toast-ink:#F1ECDF;
-  --login-grad:radial-gradient(circle at 20% 20%,#161513 0%,#0A0A09 55%,#000000 100%);
+  --content:#0A0A0A; --surface:#101112; --surface-2:#17191B;
+  --ink:#F3F4F6; --muted:#9CA3AF; --faint:#6B7280;
+  --border:rgba(255,255,255,.07); --border-2:rgba(255,255,255,.12);
+  --accent:#10B981; --accent-ink:#34D399; --accent-soft:rgba(16,185,129,.14);
+  --amber:#F59E0B; --amber-soft:rgba(245,158,11,.14);
+  --red:#F87171; --red-soft:rgba(239,68,68,.14);
+  --green:#10B981; --green-soft:rgba(16,185,129,.14);
+  --violet:#60A5FA; --violet-soft:rgba(59,130,246,.14);
+  --side-bg:#0D1117; --side-border:rgba(255,255,255,.08); --side-strong:#F9FAFB;
+  --side-ink:#9CA3AF; --side-muted:#6B7280;
+  --side-hover-bg:rgba(255,255,255,.06); --side-hover-ink:#F9FAFB;
+  --side-active-bg:rgba(16,185,129,.18); --side-active-ink:#10B981;
+  --side-active-badge-bg:#10B981; --side-active-badge-ink:#06231A;
+  --side-foot-bg:transparent; --side-foot-ink:#9CA3AF;
+  --side-foot-hover-bg:rgba(255,255,255,.06); --side-foot-hover-ink:#F9FAFB;
+  --side-chip-bg:rgba(255,255,255,.04); --side-badge-bg:rgba(255,255,255,.1); --side-badge-ink:#E5E7EB;
+  --toast-bg:#1F2937; --toast-ink:#F9FAFB;
+  --shadow-card:0 1px 3px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.4);
+  --login-grad:radial-gradient(circle at 20% 20%,#141617 0%,#0A0A0A 55%,#000000 100%);
 }
 [data-theme="light"][data-color="azul"]{
   --accent:#2C5FA8; --accent-ink:#1E437A; --accent-soft:#DCE8F8;
@@ -581,3 +583,257 @@ tbody tr.row-sel{background:var(--accent-soft)}
 
 /* ── Info do banco no rodapé da sidebar ──────────────────────────────────── */
 .db-info{font-size:10.5px;color:var(--side-muted);padding:4px 10px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.7;cursor:default;line-height:1.4}
+
+
+/* ==========================================================================
+   V2 — DESIGN SYSTEM (guia de componentes: Inter, Emerald 600, Gray 50..900)
+   Regras no fim do arquivo para sobrepor o tema base por cascata.
+   ========================================================================== */
+body{font-size:14px;letter-spacing:0}
+
+/* ---- botões ---- */
+.btn{border-radius:var(--r-sm);font-size:14px;font-weight:500;padding:9px 16px;gap:8px}
+.btn svg{width:16px;height:16px}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:var(--accent-ink);border-color:var(--accent-ink);transform:none}
+.btn-ghost{background:var(--surface);color:#374151;border-color:var(--border-2)}
+.btn-ghost:hover{background:var(--surface-2);border-color:var(--border-2);color:var(--ink);transform:none}
+[data-theme="dark"] .btn-ghost{color:var(--ink)}
+.btn-red{background:var(--surface);color:var(--red);border-color:var(--border-2)}
+.btn-red:hover{background:var(--red-soft);border-color:var(--red);color:var(--red);transform:none}
+.btn-green{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-green:hover{background:var(--accent-ink);transform:none}
+
+/* ---- cartões ---- */
+.card,.tile,.disco-panel{border-radius:12px;border:1px solid var(--border);box-shadow:var(--shadow-card)}
+.tile:hover{box-shadow:0 4px 12px rgba(16,24,40,.08);transform:none;border-color:var(--border-2)}
+.tile-ico{border-radius:10px;background:var(--accent-soft);color:var(--accent)}
+.tile .val{font-family:var(--sans);font-size:32px;font-weight:700;letter-spacing:-.02em;color:var(--accent)}
+.tile.attn .val{color:var(--amber)} .tile.ok .val{color:var(--accent)}
+
+/* ---- tabela ---- */
+table{font-size:14px}
+thead th{background:var(--surface-2);color:var(--muted);font-size:12px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.04em;padding:12px 16px;border-bottom:1px solid var(--border)}
+tbody td{padding:16px;font-size:14px;color:var(--ink);border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:hover{background:var(--surface-2)}
+td.mono{font-family:var(--sans);font-size:14px}
+td.trunc{max-width:280px}
+
+/* ---- badges de status (dot + pill, conforme o guia) ---- */
+.pill{padding:4px 10px;border-radius:999px;font-size:12px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;opacity:.9}
+.p-green{background:var(--accent-soft);color:var(--green)}
+.p-amber{background:var(--amber-soft);color:var(--amber)}
+.p-red{background:var(--red-soft);color:var(--red)}
+.p-gray{background:var(--surface-2);color:var(--muted)}
+.p-teal{background:var(--violet-soft);color:var(--violet)}
+.p-violet{background:var(--violet-soft);color:var(--violet)}
+.role-info-row .pill{justify-content:center}
+
+/* ---- ícones de ação (20px em caixa 36px, borda Gray 200) ---- */
+.icon-btn{width:36px;height:36px;border-radius:var(--r-sm);border:1px solid var(--border-2);
+  background:var(--surface);color:#374151;transition:border-color .12s,color .12s,background .12s}
+.icon-btn svg{width:18px;height:18px}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);transform:none}
+.icon-btn.del:hover{border-color:var(--red);color:var(--red);background:var(--red-soft)}
+[data-theme="dark"] .icon-btn{color:var(--muted)}
+.row-act{gap:8px}
+
+/* ---- toolbar e paginação ---- */
+.tbl-toolbar{padding:14px 16px;justify-content:flex-end}
+.tbl-toolbar-info{margin-right:auto}
+.dd-btn{padding:9px 14px;font-size:14px}
+.tbl-pagination{padding:14px 16px}
+.pg-btn{min-width:34px;height:34px;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;
+  border:1px solid var(--border-2);color:var(--muted)}
+.pg-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.pg-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.pg-btn.active:hover{color:#fff}
+
+/* ---- topbar ---- */
+.topbar{padding:18px 28px;gap:16px}
+.topbar h2{font-size:22px;font-weight:600;letter-spacing:-.02em}
+.topbar .sub{font-size:13px;color:var(--muted);margin-top:3px}
+.search input{border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border-2);
+  padding:9px 14px 9px 36px;font-size:14px;width:240px}
+.search svg{left:12px;width:16px;height:16px}
+.menu-toggle{padding:9px;border-radius:var(--r-sm)}
+
+/* ---- sidebar ---- */
+.side{width:260px}
+.brand{padding:20px 18px;border-bottom:1px solid var(--side-border)}
+.brand-title{font-size:17px;font-weight:600;letter-spacing:-.02em}
+.brand .logo{color:var(--accent)}
+.nav-item{border-radius:var(--r-sm);font-size:14px;font-weight:500;padding:10px 12px;margin-bottom:3px}
+.nav-item:hover{transform:none}
+.nav-item.active{background:var(--side-active-bg);color:var(--side-active-ink);font-weight:600}
+.nav-label{font-size:11px;letter-spacing:.08em;color:var(--side-muted);padding:16px 12px 6px}
+.side-foot button{background:transparent;font-size:13px;padding:9px 12px;border-radius:var(--r-sm)}
+.user-chip{padding:10px 12px;border-radius:var(--r-sm)}
+.user-chip .av{background:var(--accent);font-weight:600}
+.user-chip .nm{font-size:13px;font-weight:500}
+.user-chip .rl{font-size:11.5px;text-transform:none}
+.db-info{font-size:11px;padding:8px 12px 2px;opacity:.6}
+
+/* ---- formulários ---- */
+.fld label{font-size:13px;font-weight:500;color:#374151}
+[data-theme="dark"] .fld label{color:var(--muted)}
+.fld input,.fld select,.fld textarea{border-radius:var(--r-sm);font-size:14px;padding:10px 12px;border-color:var(--border-2)}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.modal{border-radius:12px}
+.sec-h{font-size:14px;font-weight:600}
+.empty p{font-size:14px}
+
+/* ---- chip de usuario no topbar + cabecalho do conteudo (botao Adicionar) ---- */
+.topbar-user{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:999px;
+  cursor:pointer;transition:background .12s}
+.topbar-user:hover{background:var(--surface-2)}
+.topbar-user .av{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0}
+.tu-info{min-width:0;line-height:1.25}
+.tu-nm{font-size:13.5px;font-weight:500;color:var(--ink);white-space:nowrap}
+.tu-ml{font-size:12px;color:var(--muted);white-space:nowrap}
+.tu-chev{width:16px;height:16px;color:var(--faint);flex-shrink:0}
+.content-head{display:flex;justify-content:flex-end;padding:22px 28px 0}
+.content{padding:18px 28px 60px}
+@media(max-width:880px){.tu-info{display:none}}
+
+/* ==========================================================================
+   V2 — AJUSTES: tipografia Inter em toda a interface + sidebar do design
+   ========================================================================== */
+:root,[data-theme="light"],[data-theme="dark"]{
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --mono:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+/* so blocos de codigo continuam monoespacados de verdade */
+.disco-pre,pre,code{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace}
+body,button,input,select,textarea{font-family:var(--sans)}
+
+/* ---- sidebar: fontes maiores, conforme o design ---- */
+.side{width:268px}
+.brand{padding:22px 18px}
+.brand .logo{width:30px;height:30px}
+.brand-title{font-size:19px;font-weight:600;letter-spacing:-.02em}
+.side-nav{padding:14px 14px}
+.nav-item{font-size:15px;font-weight:500;padding:11px 13px;gap:13px;margin-bottom:4px;border-radius:10px}
+.nav-item svg{width:20px;height:20px;opacity:.9}
+.nav-item.active{font-weight:600}
+.nav-item.active svg{opacity:1}
+.nav-label{font-size:11.5px;letter-spacing:.09em;padding:18px 13px 8px}
+
+/* ---- box do usuario (avatar + nome + e-mail + chevron) ---- */
+.side-foot{padding:14px;gap:4px}
+.user-chip{background:rgba(255,255,255,.05);border:1px solid var(--side-border);border-radius:10px;
+  padding:12px;gap:11px;margin-bottom:10px;align-items:center}
+.user-chip .av{width:38px;height:38px;font-size:14px;font-weight:600}
+.user-chip .info{line-height:1.3}
+.user-chip .nm{font-size:14px;font-weight:600;color:var(--side-strong)}
+.user-chip .rl{font-size:12px;color:var(--side-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uc-chev{width:16px;height:16px;color:var(--side-muted);flex-shrink:0}
+
+/* ---- acoes do rodape (trocar senha / sair) ---- */
+.side-foot button{font-size:14px;font-weight:500;padding:11px 12px;gap:12px;border-radius:10px}
+.side-foot button svg{width:18px;height:18px}
+.db-info{font-size:11.5px;padding:10px 12px 2px}
+
+/* ---- sidebar recolhida: esconder chevron do box ---- */
+@media(min-width:881px){.side.collapsed .uc-chev{display:none}}
+
+/* ==========================================================================
+   V2 — painel do usuario (cartao unico com divisorias) e dashboard maior
+   ========================================================================== */
+.user-panel{border:1px solid var(--side-border);border-radius:12px;overflow:hidden;background:var(--side-chip-bg)}
+.user-panel .user-chip{margin:0;border:none;border-radius:0;background:transparent;padding:13px 14px}
+.user-panel .user-chip:hover{background:var(--side-hover-bg)}
+.side-foot button.up-act{width:100%;border-radius:0;background:transparent;
+  border-top:1px solid var(--side-border);padding:13px 14px;gap:12px;font-size:14px;font-weight:500}
+.side-foot button.up-act:hover{background:var(--side-hover-bg);color:var(--side-hover-ink)}
+.side-foot button.up-act svg{width:18px;height:18px}
+.db-info{text-align:left;padding:12px 4px 2px;font-size:12px;opacity:.75}
+
+/* ---- dashboard: cartoes maiores ---- */
+.tiles{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+.tile{padding:24px 26px;border-radius:14px}
+.tile-ico{width:46px;height:46px;border-radius:12px;margin-bottom:16px}
+.tile-ico svg{width:23px;height:23px}
+.tile .lab{font-size:14px;font-weight:500;color:var(--muted)}
+.tile .val{font-size:40px;line-height:1.1;margin-top:8px;letter-spacing:-.03em}
+.tile .hint{font-size:13px;margin-top:6px}
+.tiles-wide{grid-template-columns:repeat(auto-fill,minmax(330px,380px))}
+.sec-h{font-size:15px;margin:32px 0 14px}
+@media(max-width:620px){.tiles{grid-template-columns:1fr}}
+
+/* ---- icone do modulo ao lado do titulo da secao ---- */
+.view-ico{width:42px;height:42px;border-radius:11px;background:var(--accent-soft);color:var(--accent);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.view-ico svg{width:21px;height:21px;opacity:1}
+.view-ico:empty{display:none}
+@media(max-width:620px){.view-ico{display:none}}
+
+/* ==========================================================================
+   V2 — Cadastro: a antiga gaveta lateral vira MODAL CENTRALIZADO, igual ao
+   padrao de cadastro dos demais modulos. So estilo: o markup e o JS
+   (abrir/fechar/clique no fundo) continuam os mesmos.
+   ========================================================================== */
+.drawer-overlay{display:none;align-items:flex-start;justify-content:center;
+  padding:40px 16px;overflow-y:auto}
+.drawer-overlay.show{display:flex}
+.drawer{position:relative;top:auto;right:auto;height:auto;width:100%;max-width:560px;
+  max-height:calc(100vh - 80px);border-radius:12px;overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
+  transform:translateY(12px);opacity:0;transition:transform .2s ease,opacity .2s ease}
+.drawer-overlay.show .drawer{transform:translateY(0);opacity:1}
+.drawer-h{padding:18px 22px}
+.drawer-h h3{font-size:16px}
+.drawer-b{padding:20px 22px;overflow-y:auto}
+@media(max-width:620px){
+  .drawer-overlay{padding:20px 12px}
+  .drawer{max-width:100%;max-height:calc(100vh - 40px)}
+}
+
+/* lista de categorias: nao esticar demais em telas largas */
+.cadastro-list{max-width:900px}
+
+/* ---- Cadastro: grade de cartoes (estilo da tela de Relatorios) ---- */
+.cad-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.cad-card{display:flex;flex-direction:column;align-items:flex-start;text-align:left;
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:var(--shadow-card);padding:20px;cursor:pointer;font-family:inherit;
+  transition:border-color .12s ease,box-shadow .12s ease,transform .12s ease}
+.cad-card:hover{border-color:var(--accent);box-shadow:0 4px 14px rgba(16,24,40,.09);transform:translateY(-2px)}
+.cad-card .cadastro-ico{width:42px;height:42px;border-radius:11px;background:var(--accent-soft);
+  color:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.cad-card .cadastro-ico svg{width:21px;height:21px}
+.cad-card-grupo{font-size:11.5px;font-weight:500;color:var(--faint);letter-spacing:.04em;text-transform:uppercase}
+.cad-card-label{font-size:16px;font-weight:600;color:var(--ink);margin-top:3px}
+.cad-card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.cad-card .cnt{font-size:12.5px;color:var(--muted);background:var(--surface-2);
+  padding:3px 10px;border-radius:999px}
+.cad-card-cta{display:inline-flex;align-items:center;gap:3px;font-size:13px;font-weight:500;color:var(--accent)}
+.cad-card-cta svg{width:15px;height:15px}
+@media(max-width:560px){.cad-grid{grid-template-columns:1fr}}
+
+
+/* --- Foto do usuario (V2) ------------------------------------------------ */
+.perfil-foto-acoes { display: flex; gap: 6px; justify-content: center; margin: -4px 0 12px; }
+.perfil-foto-acoes .btn-sm { padding: 4px 10px; font-size: 12px; }
+.perfil-avatar { background-size: cover; background-position: center; }
+.cell-avatar-ico { background-size: cover; background-position: center; }
+.av { background-size: cover; background-position: center; }
+
+
+/* --- Botoes maiores e acao da secao alinhada a direita (V2) -------------- */
+/* O separador da .sec-h e um ::after com flex:1, que no DOM vem depois do
+   botao. Sem 'order' o botao fica colado no titulo; com order o traco passa
+   a ocupar o meio e o botao vai para a ponta direita da secao. */
+.sec-h::after { order: 1; }
+.sec-h-btn { order: 2; margin-left: 12px; }
+
+.btn { padding: 11px 20px; font-size: 15px; gap: 9px; }
+.btn svg { width: 18px; height: 18px; }
+.btn.icon-only { padding: 11px; gap: 0; }
+.btn-sm { padding: 8px 14px; font-size: 13px; }
+.icon-btn { width: 40px; height: 40px; }
+.icon-btn svg { width: 20px; height: 20px; }

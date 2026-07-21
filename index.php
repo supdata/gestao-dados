@@ -238,7 +238,7 @@ header('Content-Type: text/html; charset=utf-8');
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&family=Datatype:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/css/style.css?v=<?= @filemtime(__DIR__ . '/css/style.css') ?: time() ?>">
 </head>
 <body>
@@ -304,14 +304,18 @@ header('Content-Type: text/html; charset=utf-8');
       <button class="nav-item" data-view="seguranca" id="navSeguranca" title="Segurança" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3" /> <path d="M11 11a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M12 12l0 2.5" /></svg><span class="lbl">Segurança</span></button>
     </nav>
     <div class="side-foot">
+      <div class="user-panel">
       <div class="user-chip" id="userChip" title="Editar meu perfil" data-i18n-title style="cursor:pointer">
-        <div class="av" id="userAvatar">?</div>
+        <div class="av js-user-av" id="userAvatar">?</div>
         <div class="info lbl">
-          <div class="nm" id="userName">—</div>
+          <div class="nm js-user-nm" id="userName">—</div>
+          <div class="rl js-user-mail"></div>
         </div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="uc-chev lbl" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6l6 -6" /></svg>
       </div>
-      <button id="changePassBtn" title="Trocar senha" data-i18n-title><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6" /> <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /> <path d="M8 11v-4a4 4 0 1 1 8 0v4" /></svg><span class="lbl" data-i18n>Trocar senha</span></button>
-      <button id="logoutBtn" title="Sair" data-i18n-title><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /> <path d="M9 12h12l-3 -3" /> <path d="M18 15l3 -3" /></svg><span class="lbl" data-i18n>Sair</span></button>
+      <button id="changePassBtn" class="up-act" title="Trocar senha" data-i18n-title><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6" /> <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /> <path d="M8 11v-4a4 4 0 1 1 8 0v4" /></svg><span class="lbl" data-i18n>Trocar senha</span></button>
+      <button id="logoutBtn" class="up-act" title="Sair" data-i18n-title><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /> <path d="M9 12h12l-3 -3" /> <path d="M18 15l3 -3" /></svg><span class="lbl" data-i18n>Sair</span></button>
+      </div>
       <div id="dbInfo" class="db-info lbl" style="display:none" title=""></div>
     </div>
   </aside>
@@ -324,6 +328,7 @@ header('Content-Type: text/html; charset=utf-8');
     </div>
     <div class="topbar">
       <button class="btn btn-ghost menu-toggle" id="menuToggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l16 0" /> <path d="M4 12l16 0" /> <path d="M4 18l16 0" /></svg></button>
+      <div class="view-ico" id="viewIcon" aria-hidden="true"></div>
       <div class="tt"><h2 id="viewTitle">Dashboard</h2><div class="sub" id="viewSub">Resumo do seu ambiente de dados</div></div>
       <div class="search" id="searchBox" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></svg><input type="text" id="search" placeholder="Buscar..." data-i18n-ph></div>
       <button class="btn btn-ghost icon-only" id="themeToggle" title="Alternar tema claro/escuro" data-i18n-title aria-label="Alternar tema">
@@ -331,8 +336,13 @@ header('Content-Type: text/html; charset=utf-8');
         <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454l0 .008" /></svg>
       </button>
       <button class="btn btn-ghost lang-toggle" id="langToggle" title="Mudar idioma / Switch language" aria-label="Mudar idioma"><span id="langToggleLabel">EN</span></button>
-      <button class="btn btn-primary" id="addBtn" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></svg><span data-i18n>Adicionar</span></button>
+      <div class="topbar-user" id="userChipTop" title="Editar meu perfil" data-i18n-title>
+        <div class="av js-user-av">?</div>
+        <div class="tu-info"><div class="tu-nm js-user-nm">—</div><div class="tu-ml js-user-mail"></div></div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tu-chev" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6l6 -6" /></svg>
+      </div>
     </div>
+    <div class="content-head"><button class="btn btn-primary" id="addBtn" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5l0 14" /> <path d="M5 12l14 0" /></svg><span data-i18n>Adicionar</span></button></div>
     <div class="content" id="content"></div>
   </div>
 </div>
