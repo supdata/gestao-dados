@@ -1192,7 +1192,9 @@ function despachar(string $metodo, string $caminho): void
 
     // ---- /usuarios/{id}/foto (ver, definir e remover a foto do usuario) ---
     // A imagem mora na tabela usuarios_foto (ver migrate() em backend/db.php).
-    // Cada um mexe na propria foto; administrador mexe na de qualquer um.
+    // Regra de acesso: cada um mexe na propria foto, administrador mexe na dos
+    // outros, e a foto do master so o proprio master altera -- mesma regra que
+    // /usuarios ja aplica para exclusao e para concessao de papel.
     if (preg_match('#^/usuarios/(\d+)/foto$#', $caminho, $m)) {
         $user = exigirLogin();
         $id = (int) $m[1];
@@ -1201,7 +1203,14 @@ function despachar(string $metodo, string $caminho): void
         $pdo = db();
         $tabFoto = quoteIdent(tableName('usuarios_foto'));
 
-        // Ver: qualquer usuario logado (as fotos aparecem em listas do portal).
+        // Ler a foto dos outros e coisa de administrador: a unica tela que
+        // mostra fotos de terceiros e a lista de usuarios, que ja e restrita.
+        // Liberar para qualquer logado permitiria enumerar contas pelo par
+        // 200/404 e coletar os rostos de toda a organizacao.
+        if (!$ehDono && !$ehAdmin) {
+            responderErro(403, 'Voce so pode ver ou alterar a sua propria foto.');
+        }
+
         if ($metodo === 'GET') {
             $stmt = $pdo->prepare('SELECT ' . quoteIdent('foto') . ' FROM ' . $tabFoto . ' WHERE ' . quoteIdent('usuario_id') . ' = ?');
             $stmt->execute([$id]);
@@ -1212,8 +1221,16 @@ function despachar(string $metodo, string $caminho): void
             responderJson(['foto' => (string) $foto]);
         }
 
-        if (!$ehDono && !$ehAdmin) {
-            responderErro(403, 'Voce so pode alterar a sua propria foto.');
+        // Alvo precisa existir -- sem isso, um PUT com id inventado criaria
+        // linhas orfas em usuarios_foto que nada depois removeria.
+        $stmtAlvo = $pdo->prepare('SELECT ' . quoteIdent('role') . ' FROM ' . quoteIdent(tableName('usuarios')) . ' WHERE ' . quoteIdent('id') . ' = ?');
+        $stmtAlvo->execute([$id]);
+        $papelAlvo = $stmtAlvo->fetchColumn();
+        if ($papelAlvo === false) {
+            responderErro(404, 'Usuario nao encontrado.');
+        }
+        if ((string) $papelAlvo === 'master' && !$ehDono && (string) ($user['role'] ?? '') !== 'master') {
+            responderErro(403, 'Apenas o usuario master pode alterar a foto de outro master.');
         }
 
         if ($metodo === 'PUT') {
