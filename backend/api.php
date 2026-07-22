@@ -899,8 +899,12 @@ function despachar(string $metodo, string $caminho): void
         // Estas duas listas precisam acompanhar TEMA_CORES e SIDE_ESTILOS em
         // js/app.js: um valor de fora cai no padrao, e a escolha do usuario
         // some silenciosamente ao recarregar a pagina.
-        $temasValidos = ['padrao', 'azul', 'verde', 'violeta', 'amarelo', 'vermelho'];
+        $temasValidos = ['padrao', 'azul', 'violeta', 'vermelho'];
         $corTema = (string) ($body['cor_tema'] ?? $user['cor_tema'] ?? 'padrao');
+        // Temas removidos em versoes anteriores voltam ao padrao (verde).
+        if (in_array($corTema, ['verde', 'amarelo'], true)) {
+            $corTema = 'padrao';
+        }
         if (!in_array($corTema, $temasValidos, true)) {
             $corTema = 'padrao';
         }

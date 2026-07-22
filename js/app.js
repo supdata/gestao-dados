@@ -738,17 +738,21 @@ const I = {
   copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666" /> <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></svg>',
 };
 
+// A cor de cada item aqui e a mesma do --accent do bloco correspondente no
+// CSS; "padrao" e o verde do :root, usado quando nenhum tema foi escolhido.
 const TEMA_CORES = [
-  { id: 'padrao', label: 'Padrão', cor: '#A9802E' },
+  { id: 'padrao', label: 'Verde', cor: '#059669' },
   { id: 'azul', label: 'Azul', cor: '#2C5FA8' },
-  { id: 'verde', label: 'Verde', cor: '#1E8A5C' },
   { id: 'violeta', label: 'Violeta', cor: '#7C4FBF' },
-  { id: 'amarelo', label: 'Amarelo', cor: '#B8860B' },
   { id: 'vermelho', label: 'Vermelho', cor: '#C0392B' },
 ];
 
+// Temas removidos: quem tinha um deles salvo volta ao padrao.
+const TEMAS_ANTIGOS = { verde: 'padrao', amarelo: 'padrao' };
+
 function aplicarTemaCor(cor) {
-  const c = cor || 'padrao';
+  let c = cor || 'padrao';
+  if (TEMAS_ANTIGOS[c]) c = TEMAS_ANTIGOS[c];
   document.documentElement.setAttribute('data-color', c);
   localStorage.setItem('colorTheme', c);
 }
