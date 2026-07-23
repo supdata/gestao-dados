@@ -2776,11 +2776,16 @@ function normalizarHead(s) {
 }
 
 function dicTemplateCsv() {
-  const cols = SCHEMA.dicionario.fields;
+  // Campos so-leitura (ex.: "Adicionado por") ficam de fora: sao definidos
+  // pelo servidor, nao pela pessoa que preenche a planilha.
+  const cols = SCHEMA.dicionario.fields.filter((f) => !f.ro);
   const exemplo = {
-    servidor: 'srv-prod-01', banco: 'meubanco', schema_nome: 'public', tabela: 'clientes',
+    // Banco vem do cadastro de Bancos e Servidor e o hostname (sem a base) --
+    // mesmo par usado no formulario do modulo.
+    banco: 'SOMA', servidor: 'SRV-SOMADB', schema_nome: 'dbo', tabela: 'clientes',
     coluna: 'cpf', tipo_dado: 'varchar(11)', permite_nulo: OPT.nulo[1],
-    descricao: 'Número do CPF do cliente', classificacao: OPT.classif[3], origem: 'Cadastro web',
+    descricao: 'Número do CPF do cliente', classificacao: OPT.classif[3],
+    origem: 'Cadastro web', obs: '',
   };
   const head = cols.map((f) => tr(f.l)).join(';');
   const linha = cols.map((f) => tr(exemplo[f.k] || '')).join(';');
@@ -2853,7 +2858,7 @@ async function dicImportarArquivo(file) {
   const linhas = parseCsvSimples(texto);
   if (linhas.length < 2) { toast('Arquivo vazio ou sem linhas de dados', true); return; }
 
-  const cols = SCHEMA.dicionario.fields;
+  const cols = SCHEMA.dicionario.fields.filter((f) => !f.ro);
   const head = linhas[0].map(normalizarHead);
   const idx = {};
   cols.forEach((f) => {
