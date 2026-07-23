@@ -63,7 +63,7 @@ function enviarCabecalhosSeguranca(string $cspNonce): void
     }
 
     header("Content-Security-Policy: default-src 'self'; "
-        . "script-src 'self' 'nonce-{$cspNonce}' https://cdnjs.cloudflare.com; "
+        . "script-src 'self' 'nonce-{$cspNonce}'; "
         . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         . "font-src https://fonts.gstatic.com; "
         . "img-src 'self' data:; "
@@ -78,6 +78,29 @@ enviarCabecalhosSeguranca($cspNonce);
 
 $configPath = __DIR__ . '/../conf/config.php';
 $jaInstalado = is_file($configPath);
+
+// -------------------------------------------------------------------------
+// Token de instalacao. Enquanto conf/config.php nao existe, /setup e publico
+// (nao ha usuario ainda). Para fechar a janela de "quem chega primeiro instala
+// e vira master", exigimos um token que so quem tem acesso ao servidor le: na
+// primeira visita o assistente gera conf/install_token.txt (0600) e passa a
+// exigir esse valor antes de renderizar o formulario ou testar a conexao.
+// -------------------------------------------------------------------------
+$tokenPath = __DIR__ . '/../conf/install_token.txt';
+$tokenEsperado = '';
+$tokenRecemCriado = false;
+$tokenValido = false;
+if (!$jaInstalado) {
+    if (!is_file($tokenPath)) {
+        if (@file_put_contents($tokenPath, bin2hex(random_bytes(16)) . "\n") !== false) {
+            @chmod($tokenPath, 0600);
+            $tokenRecemCriado = true;
+        }
+    }
+    $tokenEsperado = trim((string) @file_get_contents($tokenPath));
+    $tokenInformado = (string) ($_POST['install_token'] ?? $_GET['t'] ?? '');
+    $tokenValido = $tokenEsperado !== '' && $tokenInformado !== '' && hash_equals($tokenEsperado, $tokenInformado);
+}
 
 $erros = [];
 $sucesso = false;
@@ -126,6 +149,15 @@ $t = [
         'f_user'           => 'Usuario',
         'err_field'        => 'Informe o campo "%s".',
         'err_login'        => 'Informe o login do administrador.',
+        'err_login_fmt'    => 'Login do administrador invalido: use ate 50 caracteres, apenas letras, numeros, ponto, hifen, _ ou @.',
+        'err_token'        => 'Token de instalacao invalido. Abra o arquivo "conf/install_token.txt" no servidor e informe o valor exato.',
+        'err_conn_generic' => 'Nao foi possivel conectar com os dados informados. Confira host, porta, usuario e senha (o detalhe tecnico foi gravado no log do servidor).',
+        'token_h1'         => 'Confirmacao de instalacao',
+        'token_p'          => 'Por seguranca, so quem tem acesso ao servidor pode iniciar a instalacao. Abra o arquivo <b>conf/install_token.txt</b> na raiz do projeto e cole o valor abaixo.',
+        'token_created'    => 'Um token novo acabou de ser gerado em conf/install_token.txt. Abra esse arquivo no servidor e cole o conteudo aqui.',
+        'token_label'      => 'Token de instalacao',
+        'token_ph'         => 'cole aqui o conteudo de conf/install_token.txt',
+        'token_btn'        => 'Continuar',
         'err_pass_match'   => 'A confirmacao de senha nao corresponde a senha informada.',
         'err_cors'         => 'Informe o dominio de producao no formato "https://seusite.com.br" (sem barra no final, sem caminho).',
         'err_conn'         => 'Nao foi possivel conectar ao banco com os dados informados: ',
@@ -191,6 +223,15 @@ $t = [
         'f_user'           => 'User',
         'err_field'        => 'Enter the "%s" field.',
         'err_login'        => 'Enter the administrator login.',
+        'err_login_fmt'    => 'Invalid administrator login: up to 50 characters, only letters, numbers, dot, hyphen, _ or @.',
+        'err_token'        => 'Invalid installation token. Open the file "conf/install_token.txt" on the server and enter the exact value.',
+        'err_conn_generic' => 'Could not connect with the provided details. Check host, port, user and password (the technical detail was written to the server log).',
+        'token_h1'         => 'Installation confirmation',
+        'token_p'          => 'For security, only someone with server access can start the installation. Open the file <b>conf/install_token.txt</b> in the project root and paste its value below.',
+        'token_created'    => 'A new token was just generated in conf/install_token.txt. Open that file on the server and paste its content here.',
+        'token_label'      => 'Installation token',
+        'token_ph'         => 'paste the content of conf/install_token.txt here',
+        'token_btn'        => 'Continue',
         'err_pass_match'   => 'Password confirmation does not match the entered password.',
         'err_cors'         => 'Enter the production domain in the format "https://yoursite.com" (no trailing slash, no path).',
         'err_conn'         => 'Could not connect to the database with the provided details: ',
@@ -256,7 +297,10 @@ function caminhoSqlitePadrao(): string
 {
     $pasta = __DIR__ . '/../db';
     if (!is_dir($pasta)) {
-        @mkdir($pasta, 0775, true);
+        // 0700 (nao 0775): mesma permissao restritiva que backend/db.php aplica,
+        // para o arquivo SQLite (usuarios, hashes, auditoria) nao ficar legivel
+        // por outros usuarios do servidor em deploys onde a raiz e o docroot.
+        @mkdir($pasta, 0700, true);
     }
     return $pasta . '/database.db';
 }
@@ -288,7 +332,12 @@ function detectarOrigemAtual(): string
     $https = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
         || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
         || (string) ($_SERVER['SERVER_PORT'] ?? '') === '443';
-    $host = (string) ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '');
+    // SERVER_NAME vem da configuracao do servidor web (confiavel); HTTP_HOST e
+    // cabecalho do cliente e so entra se SERVER_NAME estiver vazio.
+    $host = (string) ($_SERVER['SERVER_NAME'] ?? '');
+    if ($host === '') {
+        $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+    }
     $host = preg_replace('/[^a-zA-Z0-9.\-:]/', '', $host) ?? '';
     return $host !== '' ? ($https ? 'https' : 'http') . "://{$host}" : '';
 }
@@ -405,6 +454,13 @@ function apagarPastaSetup(string $pasta, array $T): ?string
                 @unlink($item->getPathname());
             }
         }
+        // Confere de fato: se sobrou algum arquivo (permissao, arquivo em uso),
+        // avisa em vez de exibir "removida com sucesso" com a pasta intacta.
+        clearstatcache();
+        if (is_dir($pasta) && (new FilesystemIterator($pasta))->valid()) {
+            return sprintf($T['err_cleanup'], 'setup/');
+        }
+        // A pasta ficou vazia; remove-a apos a resposta ja ter sido enviada.
         register_shutdown_function(static function () use ($pasta): void {
             @rmdir($pasta);
         });
@@ -459,11 +515,22 @@ if (($_GET['acao'] ?? '') === 'testar' && ($_SERVER['REQUEST_METHOD'] ?? '') ===
     header('Content-Type: application/json; charset=utf-8');
     $corpo = json_decode((string) file_get_contents('php://input'), true);
     $corpo = is_array($corpo) ? $corpo : [];
+    // Sem token valido, nem responde: fecha o oraculo de SSRF/varredura de rede.
+    // (aqui $jaInstalado e sempre falso -- o ramo "ja instalado" ja deu exit acima.)
+    $tk = (string) ($corpo['install_token'] ?? '');
+    if ($tokenEsperado === '' || !hash_equals($tokenEsperado, $tk)) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'mensagem' => $T['err_token']]);
+        exit;
+    }
     try {
         testarConexaoDireta($corpo, $T);
         echo json_encode(['ok' => true, 'mensagem' => $T['conn_ok']]);
     } catch (Throwable $e) {
-        echo json_encode(['ok' => false, 'mensagem' => $e->getMessage()]);
+        // Mensagem generica ao cliente; detalhe tecnico so no log do servidor,
+        // para nao virar oraculo de "connection refused vs auth failed".
+        error_log('Setup /testar conexao: ' . $e->getMessage());
+        echo json_encode(['ok' => false, 'mensagem' => $T['err_conn_generic']]);
     }
     exit;
 }
@@ -472,14 +539,16 @@ if (($_GET['acao'] ?? '') === 'testar' && ($_SERVER['REQUEST_METHOD'] ?? '') ===
 // Envio do formulario -- valida, testa a conexao, grava config.php, cria
 // as tabelas, cria o admin e limpa a pasta setup/.
 // ---------------------------------------------------------------------------
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $tokenValido && (($_POST['fase'] ?? '') === 'instalar')) {
     foreach ($valores as $campo => $padrao) {
         $valores[$campo] = trim((string) ($_POST[$campo] ?? $padrao));
     }
     $adminSenha = (string) ($_POST['admin_password'] ?? '');
     $adminSenhaConfirma = (string) ($_POST['admin_password_confirm'] ?? '');
     $driver = $valores['db_driver'];
-    $corsPermitirQualquer = !empty($_POST['cors_permitir_qualquer']);
+    // A opcao "permitir qualquer origem" foi removida: gravava '*' com
+    // app_debug=false, combinacao que a API recusa (500 em toda chamada). A
+    // deteccao automatica do dominio ja cobre o caso comum.
 
     if ($valores['project_title'] === '') {
         $erros[] = $T['err_title'];
@@ -502,6 +571,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
     if ($valores['admin_username'] === '') {
         $erros[] = $T['err_login'];
+    } elseif (!preg_match('/^[A-Za-z0-9._@\-]{1,50}$/', $valores['admin_username'])) {
+        $erros[] = $T['err_login_fmt'];
     }
     $erroSenhaAdmin = avaliarForcaSenha($adminSenha);
     if ($erroSenhaAdmin !== null) {
@@ -511,14 +582,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $erros[] = $T['err_pass_match'];
     }
 
-    if ($corsPermitirQualquer) {
-        $valores['cors_allowed_origin'] = '*';
-    } else {
-        $valores['cors_allowed_origin'] = rtrim($valores['cors_allowed_origin'], '/');
-        $erroCors = validarOrigemCors($valores['cors_allowed_origin'], $T);
-        if ($erroCors !== null) {
-            $erros[] = $erroCors;
-        }
+    $valores['cors_allowed_origin'] = rtrim($valores['cors_allowed_origin'], '/');
+    $erroCors = validarOrigemCors($valores['cors_allowed_origin'], $T);
+    if ($erroCors !== null) {
+        $erros[] = $erroCors;
     }
 
     if (!$erros) {
@@ -550,7 +617,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             . date('Y-m-d H:i:s') . ".\n * Este arquivo NAO entra no controle de versao -- veja .gitignore.\n */\n\nreturn "
             . var_export($configArray, true) . ";\n";
 
-        $gravou = @file_put_contents($configPath, $conteudoConfig);
+        // fopen 'x' falha se o arquivo ja existir: criacao atomica que fecha o
+        // TOCTOU entre a checagem \$jaInstalado (topo) e a gravacao. Em seguida,
+        // 0600 protege secret_key e db_password de outros usuarios do servidor.
+        $gravou = false;
+        $fp = @fopen($configPath, 'x');
+        if ($fp !== false) {
+            $gravou = @fwrite($fp, $conteudoConfig);
+            @fclose($fp);
+            @chmod($configPath, 0600);
+        }
 
         if ($gravou === false) {
             $erros[] = $T['err_config'];
@@ -560,6 +636,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 require_once __DIR__ . '/../backend/auth.php';
 
                 migrate();
+
+                // Alinha a permissao do arquivo SQLite ao 0700 da pasta.
+                if ($driver === 'sqlite' && is_file($configArray['db_sqlite_path'])) {
+                    @chmod($configArray['db_sqlite_path'], 0600);
+                }
 
                 $pdo = db();
                 $tabelaUsuarios = quoteIdent(tableName('usuarios'));
@@ -595,6 +676,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 }
 
                 $sucesso = true;
+                // O token cumpriu o papel: remove-o para nao ficar residuo em conf/.
+                @unlink($tokenPath);
                 $avisoLimpeza = apagarPastaSetup(__DIR__, $T);
             } catch (Throwable $e) {
                 @unlink($configPath);
@@ -667,6 +750,35 @@ $langAction = '?lang=' . $lang;
         <a class="btn btn-primary" style="width:100%" href="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/"><?= htmlspecialchars($T['enter_portal'], ENT_QUOTES, 'UTF-8') ?></a>
       </div>
 
+    <?php elseif (!$tokenValido): ?>
+      <div class="setup-head">
+        <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6" />
+          <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" />
+          <path d="M8 11v-4a4 4 0 1 1 8 0v4" />
+        </svg>
+        <h1><?= htmlspecialchars($T['token_h1'], ENT_QUOTES, 'UTF-8') ?></h1>
+        <p><?= $T['token_p'] ?></p>
+      </div>
+      <?php if ($tokenRecemCriado): ?>
+        <div class="setup-erros" style="background:var(--green-soft);color:var(--green)"><?= htmlspecialchars($T['token_created'], ENT_QUOTES, 'UTF-8') ?></div>
+      <?php elseif (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'): ?>
+        <div class="setup-erros"><ul><li><?= htmlspecialchars($T['err_token'], ENT_QUOTES, 'UTF-8') ?></li></ul></div>
+      <?php endif; ?>
+      <form method="POST" action="<?= htmlspecialchars($langAction, ENT_QUOTES, 'UTF-8') ?>" autocomplete="off">
+        <div class="setup-section">
+          <div class="setup-grid">
+            <div class="fld span2">
+              <label><?= htmlspecialchars($T['token_label'], ENT_QUOTES, 'UTF-8') ?></label>
+              <input type="text" name="install_token" placeholder="<?= htmlspecialchars($T['token_ph'], ENT_QUOTES, 'UTF-8') ?>" autocomplete="off" autofocus required>
+            </div>
+          </div>
+        </div>
+        <div class="setup-actions">
+          <button type="submit" class="btn btn-primary"><?= htmlspecialchars($T['token_btn'], ENT_QUOTES, 'UTF-8') ?></button>
+        </div>
+      </form>
+
     <?php else: ?>
       <div class="setup-head">
         <svg viewBox="0 0 32 32" width="44" height="44" fill="none" stroke="var(--accent)" stroke-width="1.6">
@@ -685,6 +797,8 @@ $langAction = '?lang=' . $lang;
       <?php endif; ?>
 
       <form method="POST" action="<?= htmlspecialchars($langAction, ENT_QUOTES, 'UTF-8') ?>" id="setupForm" autocomplete="off">
+        <input type="hidden" name="fase" value="instalar">
+        <input type="hidden" name="install_token" value="<?= htmlspecialchars($tokenEsperado, ENT_QUOTES, 'UTF-8') ?>">
         <div class="setup-section">
           <h2><?= htmlspecialchars($T['s_project'], ENT_QUOTES, 'UTF-8') ?></h2>
           <div class="setup-grid">
@@ -702,9 +816,6 @@ $langAction = '?lang=' . $lang;
               <input type="text" name="cors_allowed_origin" id="corsOrigin" placeholder="<?= htmlspecialchars($T['ph_cors'], ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($valores['cors_allowed_origin'], ENT_QUOTES, 'UTF-8') ?>">
               <div style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5">
                 <?= $T['hint_cors'] ?>
-                <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-weight:normal;cursor:pointer">
-                  <input type="checkbox" name="cors_permitir_qualquer" value="1" id="corsQualquer"> <?= htmlspecialchars($T['lbl_cors_any'], ENT_QUOTES, 'UTF-8') ?>
-                </label>
               </div>
             </div>
           </div>
@@ -802,7 +913,8 @@ $langAction = '?lang=' . $lang;
         db_port:     document.getElementById('dbPort').value,
         db_name:     document.getElementById('dbName').value,
         db_user:     document.getElementById('dbUser').value,
-        db_password: document.getElementById('dbPassword').value
+        db_password: document.getElementById('dbPassword').value,
+        install_token: (document.querySelector('input[name="install_token"]') || {}).value || ''
       };
       btnTestar.disabled = true;
       btnTestar.textContent = T.testing;
@@ -826,18 +938,6 @@ $langAction = '?lang=' . $lang;
           btnTestar.textContent = T.testConn;
         });
     });
-  }
-
-  var corsOrigin = document.getElementById('corsOrigin');
-  var corsQualquer = document.getElementById('corsQualquer');
-  function aplicarCors() {
-    if (!corsOrigin || !corsQualquer) return;
-    corsOrigin.disabled = corsQualquer.checked;
-    corsOrigin.required = !corsQualquer.checked;
-  }
-  if (corsQualquer) {
-    corsQualquer.addEventListener('change', aplicarCors);
-    aplicarCors();
   }
 
   var form = document.getElementById('setupForm');

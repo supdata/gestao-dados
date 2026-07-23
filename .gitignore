@@ -12,3 +12,5 @@ conf/*.db
 
 # Claude
 CLAUDE.md
+# Token de instalacao gerado pelo /setup
+conf/install_token.txt

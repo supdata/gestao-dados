@@ -51,14 +51,24 @@ Com o servidor web já apontando para a pasta do projeto (ver passo 5) e sem `co
 https://portal.minhaempresa.com.br/setup/
 ```
 
-Preencha o formulário com os dados de **produção**: título do projeto, motor de banco (MySQL/PostgreSQL/SQL Server — veja o passo 4 para criar o banco antes), host/porta/nome/usuário/senha de conexão e o login/senha do administrador. Use o botão "Testar conexão" antes de instalar.
+**Token de instalação (obrigatório).** Na primeira vez que você abrir `/setup`, o assistente gera o arquivo `conf/install_token.txt` no servidor e pede esse valor antes de mostrar o formulário. Isso impede que quem chegar primeiro na URL instale o portal e se torne administrador master. Abra o arquivo direto no servidor (por SSH/SFTP ou painel de arquivos) e cole o conteúdo na tela — só quem tem acesso ao servidor consegue ler. Ao concluir a instalação, o token é apagado automaticamente.
+
+```bash
+# no servidor, para ler o token gerado:
+cat conf/install_token.txt
+```
+
+Com o token aceito, preencha o formulário com os dados de **produção**: título do projeto, motor de banco (MySQL/PostgreSQL/SQL Server — veja o passo 4 para criar o banco antes), host/porta/nome/usuário/senha de conexão e o login/senha do administrador. Use o botão "Testar conexão" antes de instalar.
 
 Ao confirmar, o assistente:
 
 - grava `conf/config.php` sozinho, já com uma `secret_key` aleatória e segura (não precisa gerar nem editar essa chave na mão);
 - cria as tabelas no banco escolhido;
 - cria o usuário administrador com a senha que você definiu;
-- remove a própria pasta `setup/` do servidor, por segurança.
+- restringe a permissão do `conf/config.php` para `0600` (só o dono lê), já que ele guarda a `secret_key` e a senha do banco;
+- apaga o token de instalação e remove a própria pasta `setup/` do servidor, por segurança.
+
+Depois de instalar, **confirme manualmente que a pasta `setup/` sumiu** — em alguns ambientes (IIS/Windows, ou permissões restritas) a autoexclusão falha, e nesse caso o assistente avisa na tela de sucesso. Se a pasta ainda existir, remova-a à mão: enquanto `conf/config.php` existir o assistente se recusa a rodar de novo, mas o ideal é não deixar a pasta lá.
 
 Depois de instalado, se quiser revisar ou ajustar algo manualmente (trocar `cors_allowed_origin`, por exemplo), edite `conf/config.php` direto — é um array PHP puro (`return [...]`), sem sintaxe nova. Os pontos que mais importa revisar em produção:
 
@@ -157,6 +167,8 @@ Sem Composer, não há `vendor/` pra reinstalar — atualizar o código é só s
 - [ ] `cors_allowed_origin` é o domínio real, não `*` (em produção a API recusa iniciar com `*` — é intencional)
 - [ ] `app_debug` é `false`
 - [ ] A pasta `setup/` não existe mais no servidor (o assistente se autoexclui ao final; confira manualmente se o aviso de falha na autoexclusão apareceu na tela de sucesso)
+- [ ] O arquivo `conf/install_token.txt` não existe mais (é apagado ao concluir a instalação; se sobrou, remova à mão)
+- [ ] `conf/config.php` está com permissão `0600` (o assistente já aplica; confira com `ls -l conf/config.php`)
 - [ ] Acessar `https://seu-dominio/setup/` agora redireciona para a tela de login (ou dá 404), nunca reabre o formulário de instalação
 - [ ] HTTPS configurado (certificado válido, não autoassinado)
 - [ ] HSTS ativado nos exemplos de deploy (`deploy/`) após validar o certificado — comece com `max-age=86400` (1 dia) e só suba para 1 ano quando tiver certeza
