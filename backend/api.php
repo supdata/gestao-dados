@@ -395,8 +395,8 @@ function dicionarioVerificarDuplicado(string $tabela, array $body, ?array $atual
 $MODULOS = [
     'acessos' => [
         'tabela' => tableName('acessos'),
-        'colunas' => ['data', 'usuario', 'tipo', 'servidor', 'objeto', 'nivel', 'justificativa', 'solicitante', 'aprovador', 'revisao', 'status', 'obs', 'criado_por'],
-        'busca' => ['usuario', 'servidor', 'objeto', 'nivel', 'justificativa', 'solicitante', 'aprovador', 'status', 'criado_por'],
+        'colunas' => ['data', 'usuario', 'tipo', 'natureza', 'servidor', 'objeto', 'nivel', 'justificativa', 'solicitante', 'aprovador', 'revisao', 'status', 'obs', 'criado_por'],
+        'busca' => ['usuario', 'natureza', 'servidor', 'objeto', 'nivel', 'justificativa', 'solicitante', 'aprovador', 'status', 'criado_por'],
         'ordem' => 'data',
     ],
     'bancos' => [
@@ -462,8 +462,8 @@ $MODULOS_TITULOS = [
  */
 $COLUNA_LABELS = [
     'acessos' => [
-        'data' => 'Data da concessão', 'usuario' => 'Usuário / login', 'tipo' => 'Tipo de conta',
-        'servidor' => 'Servidor', 'objeto' => 'Banco / objeto', 'nivel' => 'Nível de acesso', 'justificativa' => 'Justificativa',
+        'data' => 'Data da concessão', 'usuario' => 'Usuário / login', 'tipo' => 'Conta', 'natureza' => 'Natureza da conta',
+        'servidor' => 'Servidor', 'objeto' => 'Banco', 'nivel' => 'Nível de acesso', 'justificativa' => 'Justificativa',
         'solicitante' => 'Solicitante', 'aprovador' => 'Aprovador', 'revisao' => 'Revisão prevista',
         'status' => 'Status', 'obs' => 'Observações', 'criado_por' => 'Adicionado por',
     ],

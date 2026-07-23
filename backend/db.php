@@ -479,6 +479,24 @@ function columnExists(PDO $pdo, string $tabela, string $coluna): bool
 }
 
 /** Adiciona a coluna se ela ainda nao existir. Nunca apaga/altera coluna existente. */
+/**
+ * Cria um indice UNICO sobre uma ou mais colunas, se ainda nao existir.
+ * Idempotente e silencioso -- se ja houver linhas que violam a unicidade, a
+ * criacao falha e o indice simplesmente nao passa a valer (nao derruba nada).
+ *
+ * @param list<string> $colunas
+ */
+function ensureUniqueIndex(PDO $pdo, string $tabela, array $colunas): void
+{
+    $nome = 'ux_' . $tabela . '_' . implode('_', $colunas);
+    $cols = implode(', ', array_map('quoteIdent', $colunas));
+    try {
+        $pdo->exec('CREATE UNIQUE INDEX ' . quoteIdent($nome) . ' ON ' . quoteIdent($tabela) . ' (' . $cols . ')');
+    } catch (Throwable $e) {
+        // Ja existe, ou ha duplicatas atuais, ou sem permissao -- segue o jogo.
+    }
+}
+
 function ensureColumn(PDO $pdo, string $tabela, string $coluna, string $tipoSql): void
 {
     if (columnExists($pdo, $tabela, $coluna)) {
@@ -830,6 +848,7 @@ function migrate(): void
     ensureColumn($pdo, tableName('config_email'), 'testado_ok', 'INT NOT NULL DEFAULT 0');
     ensureColumn($pdo, tableName('config_projeto'), 'timeout_inatividade_min', 'INT NOT NULL DEFAULT 30');
     ensureColumn($pdo, tableName('acessos'), 'servidor', 'VARCHAR(150)');
+    ensureColumn($pdo, tableName('acessos'), 'natureza', 'VARCHAR(20)');
     ensureColumn($pdo, tableName('dicionario_dados'), 'servidor', 'VARCHAR(150)');
     ensureColumn($pdo, tableName('integracoes'), 'ip_origem', 'VARCHAR(45)');
     ensureColumn($pdo, tableName('integracoes'), 'ip_destino', 'VARCHAR(45)');
@@ -855,6 +874,9 @@ function migrate(): void
     // modulo. host/porta passam a representar o IPv4 (mudanca so de rotulo).
     ensureColumn($pdo, tableName('bancos'), 'ipv6', 'VARCHAR(200)');
     ensureColumn($pdo, tableName('bancos'), 'porta_ipv6', 'VARCHAR(10)');
+    // Um banco e unico pelo par hostname (servidor) + nome: o mesmo servidor
+    // pode ter varias bases, mas nao duas com o mesmo nome.
+    ensureUniqueIndex($pdo, tableName('bancos'), ['servidor', 'nome']);
 
     // Correcao de instalacoes MySQL antigas: logo_data foi criada como TEXT
     // (64KB) mas a aplicacao aceita imagens bem maiores. Converte para
