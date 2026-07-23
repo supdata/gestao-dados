@@ -670,6 +670,26 @@ function migrate(): void
             'criado_em' => $carimbo,
             'atualizado_em' => $carimbo,
         ],
+        // Bancos de dados cadastrados uma vez e reaproveitados em Acessos,
+        // Backup, Restore, Dicionario e Jobs -- em vez de redigitar servidor e
+        // nome a cada registro. Um banco fica identificado pelo par
+        // servidor+nome; a interface mostra "nome -- servidor" na selecao.
+        'bancos' => [
+            'id' => $pk,
+            'nome' => 'VARCHAR(150) NOT NULL',
+            'servidor' => 'VARCHAR(150)',
+            'motor' => 'VARCHAR(40)',
+            'ambiente' => 'VARCHAR(40)',
+            'host' => 'VARCHAR(200)',
+            'porta' => 'VARCHAR(10)',
+            'ipv6' => 'VARCHAR(200)',
+            'porta_ipv6' => 'VARCHAR(10)',
+            'responsavel' => 'VARCHAR(150)',
+            'obs' => $txt,
+            'criado_por' => 'VARCHAR(150)',
+            'criado_em' => $carimbo,
+            'atualizado_em' => $carimbo,
+        ],
         // Cadastro: listas de opcoes editaveis pelo administrador (Ambiente,
         // Tipo e Status de Mudancas; Criticidade, Tipo de backup e Resultado
         // de Restore). Uma tabela generica com discriminador "categoria" em
@@ -825,6 +845,16 @@ function migrate(): void
     ensureColumn($pdo, tableName('integracoes'),      'criado_por', 'VARCHAR(150)');
     // Jobs: agendamentos (Inicio->Fim) como JSON; substitui ultima/proxima execucao.
     ensureColumn($pdo, tableName('jobs'), 'agendamentos', $txt);
+
+    // Mudancas: quais bancos a alteracao atingiu. Guardado como texto separado
+    // por virgula (mesmo formato de modulos_permitidos), populado pela selecao
+    // multipla que le do modulo Bancos.
+    ensureColumn($pdo, tableName('mudancas'), 'bancos', $txt);
+
+    // Bancos: endereco IPv6 e sua porta, acrescentados depois da 1a versao do
+    // modulo. host/porta passam a representar o IPv4 (mudanca so de rotulo).
+    ensureColumn($pdo, tableName('bancos'), 'ipv6', 'VARCHAR(200)');
+    ensureColumn($pdo, tableName('bancos'), 'porta_ipv6', 'VARCHAR(10)');
 
     // Correcao de instalacoes MySQL antigas: logo_data foi criada como TEXT
     // (64KB) mas a aplicacao aceita imagens bem maiores. Converte para

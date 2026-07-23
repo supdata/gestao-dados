@@ -259,7 +259,28 @@ async function fetchTipos() {
   return tiposPorCategoria;
 }
 
+// ---------------------------------------------------------------------------
+// Bancos cadastrados (modulo Bancos). Ficam em cache para alimentar os campos
+// de selecao de banco dos outros modulos sem uma ida ao servidor por formulario.
+// ---------------------------------------------------------------------------
+let bancosCache = [];
+
+async function fetchBancos() {
+  try { bancosCache = await api.get('/bancos'); } catch (e) { /* mantem o cache anterior */ }
+  return bancosCache;
+}
+
+/** Rotulo mostrado na selecao: "nome — servidor" (ou so o nome, sem servidor). */
+function bancoLabel(b) {
+  return b.servidor ? `${b.nome} — ${b.servidor}` : b.nome;
+}
+
 /** Opções de um <select>: vêm do Cadastro (f.cat) ou da lista fixa antiga (f.o). */
+// Listas fixas do modulo Bancos (motor e ambiente). Nao vao para o Cadastro
+// por serem estaveis -- os motores suportados nao mudam com frequencia.
+OPT.motorBanco = ['MySQL', 'PostgreSQL', 'SQL Server', 'Oracle', 'SQLite', 'MongoDB', 'MariaDB', 'Outro'];
+OPT.ambienteBanco = ['Produção', 'Homologação', 'Desenvolvimento', 'Teste'];
+
 function optionsFor(f) {
   if (f.cat) return (tiposPorCategoria[f.cat] || []).map((t) => t.nome);
   return f.o || [];
@@ -272,12 +293,26 @@ function optionsFor(f) {
 // para bater com as colunas do banco.
 // ---------------------------------------------------------------------------
 const SCHEMA = {
+  bancos: { title: 'Bancos de dados', sub: 'Cadastro central de bancos usado nos demais módulos', singular: 'banco',
+    fields: [
+      { k: 'nome', l: 'Banco', t: 'text', table: 1, mono: 1 },
+      { k: 'servidor', l: 'Hostname', t: 'text', table: 1, mono: 1 },
+      { k: 'motor', l: 'Motor', t: 'select', o: OPT.motorBanco, table: 1 },
+      { k: 'ambiente', l: 'Ambiente', t: 'select', o: OPT.ambienteBanco, table: 1, pill: 1 },
+      { k: 'host', l: 'Endereço IPv4', t: 'text', mono: 1, trunc: 1 },
+      { k: 'porta', l: 'Porta IPv4', t: 'text', mono: 1 },
+      { k: 'ipv6', l: 'Endereço IPv6', t: 'text', mono: 1, trunc: 1 },
+      { k: 'porta_ipv6', l: 'Porta IPv6', t: 'text', mono: 1 },
+      { k: 'responsavel', l: 'Responsável', t: 'text', table: 1 },
+      { k: 'obs', l: 'Observações', t: 'textarea', full: 1 },
+      { k: 'criado_por', l: 'Adicionado por', t: 'text', table: 1, ro: 1 },
+    ] },
   acessos: { title: 'Matriz de acessos', sub: 'Quem tem acesso a quê, com justificativa e aprovador', singular: 'acesso',
     fields: [
       { k: 'data', l: 'Data da concessão', t: 'date', table: 1, mono: 1 },
       { k: 'usuario', l: 'Usuário / login', t: 'text', table: 1, mono: 1 },
       { k: 'tipo', l: 'Tipo de conta', t: 'select', o: OPT.tipoConta, table: 1 },
-      { k: 'servidor', l: 'Servidor', t: 'text', table: 1, mono: 1 },
+      { k: 'servidor', l: 'Servidor', t: 'bancoref', store: 'servidor', table: 1, mono: 1 },
       { k: 'objeto', l: 'Banco / objeto', t: 'text', table: 1 },
       { k: 'nivel', l: 'Nível de acesso', t: 'tagselect', cat: 'acesso_nivel', table: 1, mono: 1, trunc: 1 },
       { k: 'justificativa', l: 'Justificativa', t: 'textarea', full: 1, table: 1, trunc: 1 },
@@ -294,6 +329,7 @@ const SCHEMA = {
       { k: 'data', l: 'Data', t: 'date', table: 1, mono: 1 },
       { k: 'ambiente', l: 'Ambiente', t: 'select', cat: 'mudanca_ambiente', table: 1, pill: 1 },
       { k: 'tipo', l: 'Tipo', t: 'select', cat: 'mudanca_tipo', table: 1 },
+      { k: 'bancos', l: 'Bancos afetados', t: 'bancomulti', full: 1, table: 1, trunc: 1 },
       { k: 'descricao', l: 'Descrição da mudança', t: 'textarea', full: 1, table: 1, trunc: 1 },
       { k: 'objetos', l: 'Objetos', t: 'objetos', full: 1, table: 1, trunc: 1 },
       { k: 'rollback', l: 'Plano de rollback', t: 'textarea', full: 1 },
@@ -305,7 +341,7 @@ const SCHEMA = {
     ] },
   backup: { title: 'Política de backup', sub: 'Regra de backup por banco', singular: 'política',
     fields: [
-      { k: 'banco', l: 'Banco', t: 'text', table: 1, mono: 1 },
+      { k: 'banco', l: 'Banco', t: 'bancoref', table: 1, mono: 1 },
       { k: 'criticidade', l: 'Criticidade', t: 'select', cat: 'backup_criticidade', table: 1, pill: 1 },
       { k: 'tipo', l: 'Tipo de backup', t: 'select', cat: 'backup_tipo', table: 1 },
       { k: 'frequencia', l: 'Frequência', t: 'text', table: 1 },
@@ -320,7 +356,7 @@ const SCHEMA = {
   restore: { title: 'Restore', sub: 'Registro das recuperações testadas', singular: 'teste',
     fields: [
       { k: 'data', l: 'Data do teste', t: 'date', table: 1, mono: 1 },
-      { k: 'banco', l: 'Banco', t: 'text', table: 1, mono: 1 },
+      { k: 'banco', l: 'Banco', t: 'bancoref', table: 1, mono: 1 },
       { k: 'backup', l: 'Backup testado', t: 'select', o: OPT.nulo, table: 1 },
       { k: 'tempo', l: 'Tempo de restore', t: 'text', table: 1, mono: 1 },
       { k: 'resultado', l: 'Resultado', t: 'select', cat: 'backup_resultado', table: 1, pill: 1 },
@@ -330,8 +366,8 @@ const SCHEMA = {
     ] },
   dicionario: { title: 'Dicionário de dados', sub: 'Significado, origem e classificação de cada coluna', singular: 'campo',
     fields: [
+      { k: 'banco', l: 'Banco', t: 'bancoref', fillServidor: 1, table: 1, mono: 1 },
       { k: 'servidor', l: 'Servidor', t: 'text', table: 1, mono: 1 },
-      { k: 'banco', l: 'Banco', t: 'text', table: 1, mono: 1 },
       { k: 'schema_nome', l: 'Schema', t: 'text', table: 1, mono: 1 },
       { k: 'tabela', l: 'Tabela', t: 'text', table: 1, mono: 1 },
       { k: 'coluna', l: 'Coluna', t: 'text', table: 1, mono: 1 },
@@ -369,8 +405,8 @@ const SCHEMA = {
     fields: [
       { k: 'nome', l: 'Job', t: 'text', table: 1, mono: 1 },
       { k: 'tipo', l: 'Tipo', t: 'select', cat: 'job_tipo', table: 1 },
+      { k: 'banco', l: 'Banco', t: 'bancoref', fillServidor: 1, table: 1 },
       { k: 'servidor', l: 'Servidor / instância', t: 'text', table: 1, mono: 1 },
-      { k: 'banco', l: 'Banco', t: 'text', table: 1 },
       { k: 'descricao', l: 'Descrição / finalidade', t: 'textarea', full: 1, table: 1, trunc: 1 },
       { k: 'comando', l: 'Comando / Passo', t: 'passos', full: 1, table: 1, trunc: 1 },
       { k: 'frequencia', l: 'Frequência', t: 'select', cat: 'job_frequencia', table: 1 },
@@ -384,10 +420,10 @@ const SCHEMA = {
     ] },
 };
 
-const ENDPOINT = { acessos: '/acessos', mudancas: '/mudancas', backup: '/backup', restore: '/restore', dicionario: '/dicionario', integracoes: '/integracoes', jobs: '/jobs' };
+const ENDPOINT = { bancos: '/bancos', acessos: '/acessos', mudancas: '/mudancas', backup: '/backup', restore: '/restore', dicionario: '/dicionario', integracoes: '/integracoes', jobs: '/jobs' };
 
 const MODULOS_KEYS = Object.keys(ENDPOINT);
-const MODULO_LABELS = { acessos: 'Acessos', mudancas: 'Mudanças', backup: 'Backup', restore: 'Restore', dicionario: 'Dicionário', integracoes: 'Integrações', jobs: 'Jobs' };
+const MODULO_LABELS = { bancos: 'Bancos', acessos: 'Acessos', mudancas: 'Mudanças', backup: 'Backup', restore: 'Restore', dicionario: 'Dicionário', integracoes: 'Integrações', jobs: 'Jobs' };
 const ROLE_LABEL = { admin: 'Administrador', escrita: 'Escrita', leitura: 'Leitura', master: 'Master' };
 const ROLE_PILL = { admin: 'p-teal', escrita: 'p-amber', leitura: 'p-gray', master: 'p-violet' };
 
@@ -490,6 +526,20 @@ const I18N = {
     'Confirmar senha': 'Confirm password', 'Defina sua senha': 'Set your password',
     'Por segurança, você precisa criar uma nova senha antes de continuar.': 'For security reasons, you must create a new password before continuing.',
     'Salvar senha': 'Save password', 'Status da conta': 'Account status',
+    'Bancos': 'Databases',
+    'Bancos de dados': 'Databases',
+    'Cadastro central de bancos usado nos demais módulos': 'Central database registry used across the other modules',
+    'Selecione um banco': 'Select a database',
+    'Nenhum banco cadastrado': 'No database registered',
+    'Buscar banco...': 'Search database...',
+    'Bancos afetados': 'Affected databases',
+    'Motor': 'Engine',
+    'Hostname': 'Hostname',
+    'Endereço IPv4': 'IPv4 address', 'Porta IPv4': 'IPv4 port',
+    'Endereço IPv6': 'IPv6 address', 'Porta IPv6': 'IPv6 port',
+    'Host / endereço': 'Host / address',
+    'Porta': 'Port',
+    'Ambiente': 'Environment',
     'Cancelar': 'Cancel', 'Salvar registro': 'Save record', 'Novo registro': 'New record', 'Editar': 'Edit',
     'Salvar nova senha': 'Save new password', 'Senha atual': 'Current password', 'Nova senha': 'New password',
     'Novo usuário': 'New user', 'Login': 'Login', 'Nome completo': 'Full name',
@@ -1743,6 +1793,37 @@ function buildForm(key, data) {
       h += `<div class="multitext">${items.map((it) => multitextRowHtml(it)).join('')}</div>`;
       h += `<button type="button" class="btn btn-ghost" style="margin-top:8px" data-act="addMultitextRow">+ ${esc(tr('Adicionar objeto'))}</button>`;
       h += `<input type="hidden" data-k="${f.k}" value="${v}">`;
+    } else if (f.t === 'bancoref') {
+      // Selecao unica de um banco cadastrado. Guarda no proprio campo o nome
+      // do banco (ou, com store:'servidor', o servidor dele -- usado no campo
+      // Servidor de Acessos). Com fillServidor:1, preenche tambem o campo
+      // Servidor irmao ao escolher.
+      const atual = data && data[f.k] ? String(data[f.k]) : '';
+      const opts = bancosCache.map((b) => {
+        const val = f.store === 'servidor' ? (b.servidor || '') : b.nome;
+        const sel = val === atual ? ' selected' : '';
+        return `<option value="${esc(val)}" data-servidor="${esc(b.servidor || '')}"${sel}>${esc(bancoLabel(b))}</option>`;
+      }).join('');
+      // Valor antigo que nao bate com nenhum banco cadastrado: mantem como
+      // opcao, para a edicao nao perder o dado silenciosamente.
+      const orfao = atual && !bancosCache.some((b) => (f.store === 'servidor' ? b.servidor : b.nome) === atual)
+        ? `<option value="${esc(atual)}" selected>${esc(atual)}</option>` : '';
+      const fill = f.fillServidor ? ' data-fill-servidor="1"' : '';
+      h += `<select data-k="${f.k}"${fill} data-act="bancoRefChange">` +
+        `<option value="">${esc(tr(bancosCache.length ? 'Selecione um banco' : 'Nenhum banco cadastrado'))}</option>` +
+        orfao + opts + '</select>';
+    } else if (f.t === 'bancomulti') {
+      // Selecao multipla de bancos (Mudancas). Reaproveita a mecanica do
+      // tagselect -- chips + string separada por virgula -- so que as opcoes
+      // vem do modulo Bancos em vez de uma lista do Cadastro.
+      const selecionados = (data && data[f.k] ? String(data[f.k]).split(',').map((s) => s.trim()).filter(Boolean) : []);
+      const opcoes = bancosCache.map((b) => bancoLabel(b));
+      h += `<div class="tagselect" data-opcoes="${esc(JSON.stringify(opcoes))}">` +
+        `<div class="tagselect-chips">${selecionados.map((s) => tagChipHtml(s)).join('')}</div>` +
+        `<input type="text" class="tagselect-input" placeholder="${esc(tr('Buscar banco...'))}" data-act="openTagDropdown" data-oninput="filterTagOptions">` +
+        `<div class="tagselect-dropdown"></div>` +
+        '</div>';
+      h += `<input type="hidden" data-k="${f.k}" value="${esc(selecionados.join(', '))}">`;
     } else if (f.t === 'tagselect') {
       // Campo de busca com "chips": pensado pra listas que podem crescer
       // muito (ex.: níveis de acesso cadastrados em Cadastro) -- uma lista
@@ -1929,6 +2010,27 @@ function syncTagHidden(wrap) {
   hidden.value = vals.join(', ');
 }
 
+// Ao escolher um banco num campo bancoref com fillServidor, copia o servidor
+// do banco para o campo Servidor do mesmo formulario, deixando-o so-leitura.
+function bancoRefChange(select) {
+  if (!select.dataset.fillServidor) return;
+  const opt = select.options[select.selectedIndex];
+  const servidor = opt ? (opt.dataset.servidor || '') : '';
+  const campoServidor = $('modalBody').querySelector('[data-k="servidor"]');
+  if (!campoServidor) return;
+  if (select.value) {
+    // Banco escolhido: servidor vem dele e fica travado, para os dois nao
+    // divergirem. Sem banco (ou banco sem servidor cadastrado), libera o
+    // campo para digitacao manual.
+    campoServidor.value = servidor;
+    campoServidor.readOnly = !!servidor;
+    campoServidor.style.opacity = servidor ? '0.7' : '';
+  } else {
+    campoServidor.readOnly = false;
+    campoServidor.style.opacity = '';
+  }
+}
+
 function openTagDropdown(input) {
   const wrap = input.closest('.tagselect');
   document.querySelectorAll('.tagselect.open').forEach((w) => { if (w !== wrap) w.classList.remove('open'); });
@@ -1972,8 +2074,11 @@ function removeMultitextRow(btn) {
   syncMultitext(wrap.querySelector('.multitext-row input[type="text"]'));
 }
 
+const USA_BANCOS = ['acessos', 'mudancas', 'backup', 'restore', 'dicionario', 'jobs'];
+
 async function openNew(key) {
   if (key === 'mudancas' || key === 'backup' || key === 'restore') await fetchTipos();
+  if (USA_BANCOS.includes(key)) await fetchBancos();
   editId = null; editKey = key;
   $('modalTitle').textContent = tr('Novo registro') + ' · ' + tr(SCHEMA[key].title);
   $('modalBody').innerHTML = buildForm(key, null);
@@ -1986,6 +2091,7 @@ async function openNew(key) {
 
 async function openEdit(key, id) {
   if (key === 'mudancas' || key === 'backup' || key === 'restore') await fetchTipos();
+  if (USA_BANCOS.includes(key)) await fetchBancos();
   editKey = key; editId = id;
   const rec = cache[key].find((r) => String(r.id) === String(id));
   $('modalTitle').textContent = tr('Editar') + ' · ' + tr(SCHEMA[key].title);
@@ -3812,6 +3918,7 @@ const ACTIONS = {
   dicTemplateCsv,
   dicImportarClick,
   // tagselect (campo "Nivel de acesso" e similares)
+  bancoRefChange,
   openTagDropdown,
   addTagOption,
 removeTag,

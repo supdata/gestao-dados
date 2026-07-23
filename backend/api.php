@@ -399,10 +399,16 @@ $MODULOS = [
         'busca' => ['usuario', 'servidor', 'objeto', 'nivel', 'justificativa', 'solicitante', 'aprovador', 'status', 'criado_por'],
         'ordem' => 'data',
     ],
+    'bancos' => [
+        'tabela' => tableName('bancos'),
+        'colunas' => ['nome', 'servidor', 'motor', 'ambiente', 'host', 'porta', 'ipv6', 'porta_ipv6', 'responsavel', 'obs', 'criado_por'],
+        'busca' => ['nome', 'servidor', 'motor', 'ambiente', 'host', 'responsavel', 'criado_por'],
+        'ordem' => 'nome',
+    ],
     'mudancas' => [
         'tabela' => tableName('mudancas'),
-        'colunas' => ['codigo', 'data', 'ambiente', 'tipo', 'descricao', 'script', 'rollback', 'solicitante', 'aprovador', 'status', 'resultado', 'criado_por'],
-        'busca' => ['codigo', 'descricao', 'solicitante', 'aprovador', 'status', 'ambiente', 'criado_por'],
+        'colunas' => ['codigo', 'data', 'ambiente', 'tipo', 'bancos', 'descricao', 'script', 'rollback', 'solicitante', 'aprovador', 'status', 'resultado', 'criado_por'],
+        'busca' => ['codigo', 'descricao', 'solicitante', 'aprovador', 'status', 'ambiente', 'bancos', 'criado_por'],
         'ordem' => 'data',
     ],
     'backup' => [
@@ -461,8 +467,13 @@ $COLUNA_LABELS = [
         'solicitante' => 'Solicitante', 'aprovador' => 'Aprovador', 'revisao' => 'Revisão prevista',
         'status' => 'Status', 'obs' => 'Observações', 'criado_por' => 'Adicionado por',
     ],
+    'bancos' => [
+        'nome' => 'Banco', 'servidor' => 'Hostname', 'motor' => 'Motor', 'ambiente' => 'Ambiente',
+        'host' => 'Endereco IPv4', 'porta' => 'Porta IPv4', 'ipv6' => 'Endereco IPv6', 'porta_ipv6' => 'Porta IPv6',
+        'responsavel' => 'Responsavel', 'obs' => 'Observacoes', 'criado_por' => 'Adicionado por',
+    ],
     'mudancas' => [
-        'codigo' => 'Chamado', 'data' => 'Data', 'ambiente' => 'Ambiente', 'tipo' => 'Tipo',
+        'codigo' => 'Chamado', 'data' => 'Data', 'ambiente' => 'Ambiente', 'tipo' => 'Tipo', 'bancos' => 'Bancos',
         'descricao' => 'Descrição da mudança', 'script' => 'Objetos',
         'rollback' => 'Plano de rollback', 'solicitante' => 'Solicitante', 'aprovador' => 'Aprovador',
         'status' => 'Status', 'resultado' => 'Resultado / observações', 'criado_por' => 'Adicionado por',
